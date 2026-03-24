@@ -330,6 +330,44 @@ export type Database = {
           },
         ]
       }
+      project_notes: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          project_id: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          content?: string
+          created_at?: string
+          id?: string
+          project_id: string
+          title?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          project_id?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_notes_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       project_services: {
         Row: {
           config_found: boolean | null
@@ -367,6 +405,50 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "project_services_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      project_webhooks: {
+        Row: {
+          created_at: string
+          event_types: string[]
+          id: string
+          is_active: boolean
+          last_triggered_at: string | null
+          name: string
+          project_id: string
+          url: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          event_types?: string[]
+          id?: string
+          is_active?: boolean
+          last_triggered_at?: string | null
+          name: string
+          project_id: string
+          url: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          event_types?: string[]
+          id?: string
+          is_active?: boolean
+          last_triggered_at?: string | null
+          name?: string
+          project_id?: string
+          url?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_webhooks_project_id_fkey"
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
@@ -531,6 +613,103 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      uptime_logs: {
+        Row: {
+          checked_at: string
+          error_message: string | null
+          id: string
+          monitor_id: string
+          response_time: number | null
+          status: string
+          status_code: number | null
+          user_id: string
+        }
+        Insert: {
+          checked_at?: string
+          error_message?: string | null
+          id?: string
+          monitor_id: string
+          response_time?: number | null
+          status: string
+          status_code?: number | null
+          user_id: string
+        }
+        Update: {
+          checked_at?: string
+          error_message?: string | null
+          id?: string
+          monitor_id?: string
+          response_time?: number | null
+          status?: string
+          status_code?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "uptime_logs_monitor_id_fkey"
+            columns: ["monitor_id"]
+            isOneToOne: false
+            referencedRelation: "uptime_monitors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      uptime_monitors: {
+        Row: {
+          check_interval: number
+          created_at: string
+          id: string
+          is_active: boolean
+          last_checked_at: string | null
+          last_response_time: number | null
+          last_status: string | null
+          name: string
+          project_id: string | null
+          updated_at: string
+          uptime_percentage: number | null
+          url: string
+          user_id: string
+        }
+        Insert: {
+          check_interval?: number
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          last_checked_at?: string | null
+          last_response_time?: number | null
+          last_status?: string | null
+          name: string
+          project_id?: string | null
+          updated_at?: string
+          uptime_percentage?: number | null
+          url: string
+          user_id: string
+        }
+        Update: {
+          check_interval?: number
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          last_checked_at?: string | null
+          last_response_time?: number | null
+          last_status?: string | null
+          name?: string
+          project_id?: string | null
+          updated_at?: string
+          uptime_percentage?: number | null
+          url?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "uptime_monitors_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
