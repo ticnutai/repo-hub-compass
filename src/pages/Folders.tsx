@@ -39,6 +39,41 @@ export default function Folders() {
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const [moveProjectId, setMoveProjectId] = useState<string | null>(null);
   const [exportingId, setExportingId] = useState<string | null>(null);
+  const [dragOverFolderId, setDragOverFolderId] = useState<string | null>(null);
+  const [dragOverUnassigned, setDragOverUnassigned] = useState(false);
+
+  const handleDragStart = (e: React.DragEvent, projectId: string) => {
+    e.dataTransfer.setData("projectId", projectId);
+    e.dataTransfer.effectAllowed = "move";
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+  };
+
+  const handleDropOnFolder = async (e: React.DragEvent, folderId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOverFolderId(null);
+    const projectId = e.dataTransfer.getData("projectId");
+    if (!projectId) return;
+    try {
+      await moveProject.mutateAsync({ projectId, folderId });
+      toast.success("פרויקט הועבר לתיקייה");
+    } catch (err: any) { toast.error(err.message); }
+  };
+
+  const handleDropOnUnassigned = async (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOverUnassigned(false);
+    const projectId = e.dataTransfer.getData("projectId");
+    if (!projectId) return;
+    try {
+      await moveProject.mutateAsync({ projectId, folderId: null });
+      toast.success("פרויקט הוצא מתיקייה");
+    } catch (err: any) { toast.error(err.message); }
+  };
 
   const handleExportFolder = async (folder: any) => {
     setExportingId(folder.id);
