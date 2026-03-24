@@ -107,6 +107,37 @@ export function useCreateAccount() {
   });
 }
 
+export function useUpdateAccount() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...updates }: {
+      id: string; service_name?: string; service_type?: string; username?: string;
+      email?: string; password?: string; api_key?: string; notes?: string;
+    }) => {
+      const { data, error } = await supabase
+        .from("accounts")
+        .update(updates)
+        .eq("id", id)
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["accounts"] }),
+  });
+}
+
+export function useDeleteAccount() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("accounts").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["accounts"] }),
+  });
+}
+
 // ---- Changelogs ----
 export function useChangelogs(projectId?: string) {
   return useQuery({
