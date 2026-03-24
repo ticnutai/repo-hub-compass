@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useCreateProject, useProfile } from "@/hooks/use-data";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -138,13 +139,27 @@ export function GitHubImportDialog({ open, onOpenChange }: Props) {
     });
   }, [repos, search, langFilter, visFilter]);
 
+  const autoAnalyze = async (projectId: string) => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      const pid = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      await fetch(`https://${pid}.supabase.co/functions/v1/analyze-project`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ project_id: projectId }),
+      });
+    } catch { /* silent - analysis is best-effort */ }
+  };
+
   const importSelected = async () => {
     setImporting(true);
     const toImport = repos.filter((r) => selected.has(r.id));
     let success = 0;
+    const createdIds: string[] = [];
     for (const repo of toImport) {
       try {
-        await createProject.mutateAsync({
+        const result = await createProject.mutateAsync({
           name: repo.name,
           description: repo.description || "",
           platform: "github",
@@ -153,9 +168,16 @@ export function GitHubImportDialog({ open, onOpenChange }: Props) {
           repo_url: repo.html_url,
         });
         success++;
+        if (result?.id) createdIds.push(result.id);
       } catch { /* skip */ }
     }
-    toast.success(`${success} פרויקטים יובאו בהצלחה!`);
+    toast.success(`${success} פרויקטים יובאו בהצלחה! מנתח אוטומטית...`);
+    
+    // Auto-analyze all imported projects in background
+    for (const id of createdIds) {
+      autoAnalyze(id);
+    }
+    
     setImporting(false);
     onOpenChange(false);
     resetState();
