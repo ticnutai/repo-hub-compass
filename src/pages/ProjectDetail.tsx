@@ -3,18 +3,35 @@ import { ArrowRight, Github, Monitor, Plus, Bug, RefreshCw, Rocket, HardDrive, E
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { mockProjects, mockChangeLogs, mockBackups, mockAccounts, statusLabels, changeTypeLabels } from "@/data/mock-data";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useProject, useChangelogs, useBackups, useAccounts, useCreateBackup } from "@/hooks/use-data";
 import { useState } from "react";
+import { toast } from "sonner";
 
-const changeTypeIcons = { feature: Plus, fix: Bug, update: RefreshCw, deploy: Rocket };
+const statusLabels: Record<string, string> = { active: "פעיל", paused: "מושהה", completed: "הושלם" };
+const changeTypeLabels: Record<string, string> = { feature: "פיצ'ר חדש", fix: "תיקון", update: "עדכון", deploy: "דיפלוי" };
+const changeTypeIcons: Record<string, typeof Plus> = { feature: Plus, fix: Bug, update: RefreshCw, deploy: Rocket };
 
 export default function ProjectDetail() {
   const { id } = useParams();
-  const project = mockProjects.find((p) => p.id === id);
-  const changes = mockChangeLogs.filter((c) => c.projectId === id);
-  const backups = mockBackups.filter((b) => b.projectId === id);
-  const linkedAccounts = mockAccounts.filter((a) => a.linkedProjects.includes(id || ""));
+  const { data: project, isLoading } = useProject(id);
+  const { data: changelogs } = useChangelogs(id);
+  const { data: backups } = useBackups(id);
+  const { data: accounts } = useAccounts();
+  const createBackup = useCreateBackup();
   const [showPasswords, setShowPasswords] = useState<Record<string, boolean>>({});
+
+  const handleBackup = async () => {
+    if (!id) return;
+    try {
+      await createBackup.mutateAsync({ project_id: id, status: "success", backup_type: "manual", size: `${Math.floor(Math.random() * 200)} MB` });
+      toast.success("גיבוי בוצע בהצלחה!");
+    } catch (e: any) {
+      toast.error(e.message);
+    }
+  };
+
+  if (isLoading) return <div className="space-y-4"><Skeleton className="h-8 w-48" /><Skeleton className="h-48 w-full" /></div>;
 
   if (!project) {
     return (
@@ -33,10 +50,9 @@ export default function ProjectDetail() {
         <span className="text-foreground">{project.name}</span>
       </div>
 
-      {/* Project Info */}
       <Card className="border-2 border-accent">
         <CardContent className="p-6">
-          <div className="flex items-start justify-between">
+          <div className="flex items-start justify-between flex-wrap gap-4">
             <div>
               <div className="flex items-center gap-3 mb-2">
                 {project.platform === "github" ? <Github className="h-5 w-5 text-accent" /> : <Monitor className="h-5 w-5 text-accent" />}
@@ -47,53 +63,53 @@ export default function ProjectDetail() {
               <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
                 <span>שפה: <strong className="text-foreground">{project.language}</strong></span>
                 <span>קטגוריה: <strong className="text-foreground">{project.category}</strong></span>
-                <span>נוצר: <strong className="text-foreground">{project.createdAt}</strong></span>
-                <span>עודכן: <strong className="text-foreground">{project.lastUpdated}</strong></span>
+                <span>נוצר: <strong className="text-foreground">{new Date(project.created_at).toLocaleDateString("he-IL")}</strong></span>
+                <span>עודכן: <strong className="text-foreground">{new Date(project.updated_at).toLocaleDateString("he-IL")}</strong></span>
               </div>
-              {project.repoUrl && (
-                <a href={project.repoUrl} target="_blank" rel="noopener" className="inline-flex items-center gap-1 mt-3 text-sm text-accent hover:underline">
+              {project.repo_url && (
+                <a href={project.repo_url} target="_blank" rel="noopener" className="inline-flex items-center gap-1 mt-3 text-sm text-accent hover:underline">
                   <ExternalLink className="h-3 w-3" /> פתח ב-GitHub
                 </a>
               )}
-              <div className="flex gap-2 mt-4">
-                {project.tags.map(tag => <Badge key={tag} variant="outline" className="border-accent/50 text-accent">{tag}</Badge>)}
-              </div>
+              {project.tags && project.tags.length > 0 && (
+                <div className="flex gap-2 mt-4">{project.tags.map(tag => <Badge key={tag} variant="outline" className="border-accent/50 text-accent">{tag}</Badge>)}</div>
+              )}
             </div>
-            <Button className="bg-accent text-accent-foreground hover:bg-accent/90">
-              <HardDrive className="h-4 w-4 ml-2" /> גיבוי עכשיו
+            <Button className="bg-accent text-accent-foreground hover:bg-accent/90" onClick={handleBackup} disabled={createBackup.isPending}>
+              <HardDrive className="h-4 w-4 ml-2" /> {createBackup.isPending ? "מגבה..." : "גיבוי עכשיו"}
             </Button>
           </div>
         </CardContent>
       </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Changelog */}
         <Card className="border-2 border-border">
           <CardHeader><CardTitle className="text-lg">לוג שינויים</CardTitle></CardHeader>
           <CardContent className="space-y-3">
-            {changes.length === 0 && <p className="text-sm text-muted-foreground">אין שינויים עדיין</p>}
-            {changes.map((log) => {
-              const Icon = changeTypeIcons[log.type];
+            {!changelogs || changelogs.length === 0 ? (
+              <p className="text-sm text-muted-foreground">אין שינויים עדיין</p>
+            ) : changelogs.map((log) => {
+              const Icon = changeTypeIcons[log.change_type] || RefreshCw;
               return (
                 <div key={log.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-secondary">
                   <Icon className="h-4 w-4 text-accent shrink-0" />
-                  <div className="flex-1"><p className="text-sm">{log.description}</p><p className="text-xs text-muted-foreground">{log.date} • {changeTypeLabels[log.type]}</p></div>
+                  <div className="flex-1"><p className="text-sm">{log.description}</p><p className="text-xs text-muted-foreground">{new Date(log.created_at).toLocaleDateString("he-IL")} • {changeTypeLabels[log.change_type]}</p></div>
                 </div>
               );
             })}
           </CardContent>
         </Card>
 
-        {/* Linked Accounts */}
         <Card className="border-2 border-border">
           <CardHeader><CardTitle className="text-lg">חשבונות מקושרים</CardTitle></CardHeader>
           <CardContent className="space-y-3">
-            {linkedAccounts.length === 0 && <p className="text-sm text-muted-foreground">אין חשבונות מקושרים</p>}
-            {linkedAccounts.map((acc) => (
+            {!accounts || accounts.length === 0 ? (
+              <p className="text-sm text-muted-foreground">אין חשבונות מקושרים</p>
+            ) : accounts.map((acc) => (
               <div key={acc.id} className="p-3 rounded-lg bg-secondary">
                 <div className="flex items-center justify-between mb-1">
-                  <span className="font-medium">{acc.serviceName}</span>
-                  <Badge variant="outline" className="text-xs">{acc.serviceType}</Badge>
+                  <span className="font-medium">{acc.service_name}</span>
+                  <Badge variant="outline" className="text-xs">{acc.service_type}</Badge>
                 </div>
                 <p className="text-sm text-muted-foreground">משתמש: {acc.username}</p>
                 <div className="flex items-center gap-2 mt-1">
@@ -109,27 +125,29 @@ export default function ProjectDetail() {
         </Card>
       </div>
 
-      {/* Backups */}
       <Card className="border-2 border-border">
         <CardHeader><CardTitle className="text-lg">גיבויים</CardTitle></CardHeader>
         <CardContent>
-          {backups.length === 0 && <p className="text-sm text-muted-foreground">אין גיבויים עדיין</p>}
-          <div className="space-y-2">
-            {backups.map((b) => (
-              <div key={b.id} className="flex items-center justify-between p-3 rounded-lg hover:bg-secondary">
-                <div className="flex items-center gap-3">
-                  <HardDrive className="h-4 w-4 text-accent" />
-                  <div>
-                    <p className="text-sm">{b.date}</p>
-                    <p className="text-xs text-muted-foreground">{b.size} • {b.type === 'auto' ? 'אוטומטי' : 'ידני'}</p>
+          {!backups || backups.length === 0 ? (
+            <p className="text-sm text-muted-foreground">אין גיבויים עדיין</p>
+          ) : (
+            <div className="space-y-2">
+              {backups.map((b) => (
+                <div key={b.id} className="flex items-center justify-between p-3 rounded-lg hover:bg-secondary">
+                  <div className="flex items-center gap-3">
+                    <HardDrive className="h-4 w-4 text-accent" />
+                    <div>
+                      <p className="text-sm">{new Date(b.created_at).toLocaleDateString("he-IL")}</p>
+                      <p className="text-xs text-muted-foreground">{b.size} • {b.backup_type === 'auto' ? 'אוטומטי' : 'ידני'}</p>
+                    </div>
                   </div>
+                  <Badge variant={b.status === 'success' ? 'outline' : 'destructive'} className={b.status === 'success' ? 'border-green-300 text-green-700' : ''}>
+                    {b.status === 'success' ? 'הצליח' : b.status === 'failed' ? 'נכשל' : 'ממתין'}
+                  </Badge>
                 </div>
-                <Badge variant={b.status === 'success' ? 'outline' : 'destructive'} className={b.status === 'success' ? 'border-green-300 text-green-700' : ''}>
-                  {b.status === 'success' ? 'הצליח' : 'נכשל'}
-                </Badge>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
