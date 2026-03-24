@@ -248,6 +248,11 @@ export default function ProjectDetail() {
                 <Button className="bg-accent text-accent-foreground hover:bg-accent/90" onClick={handleBackup} disabled={createBackup.isPending}>
                   <HardDrive className="h-4 w-4 ml-2" /> {createBackup.isPending ? "מגבה..." : "גיבוי עכשיו"}
                 </Button>
+                <Button variant="outline" className="border-accent text-accent hover:bg-accent/10" onClick={async () => {
+                  try { await exportProjectAsZip(project.id, project.name); toast.success("פרויקט יוצא בהצלחה!"); } catch (e: any) { toast.error(e.message); }
+                }}>
+                  <Download className="h-4 w-4 ml-2" /> הורד (ZIP)
+                </Button>
               </div>
             </div>
           )}
