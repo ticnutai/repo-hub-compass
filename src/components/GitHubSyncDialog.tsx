@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
+import { useProfile } from "@/hooks/use-data";
 import { toast } from "sonner";
 
 interface Props {
@@ -17,9 +18,12 @@ interface Props {
 }
 
 export function GitHubSyncDialog({ open, onOpenChange, projectId, projectName, hasToken }: Props) {
+  const { data: profile } = useProfile();
   const [token, setToken] = useState("");
   const [syncing, setSyncing] = useState(false);
   const queryClient = useQueryClient();
+
+  const hasSavedToken = hasToken || !!profile?.github_token;
 
   const handleSync = async () => {
     setSyncing(true);
@@ -70,7 +74,7 @@ export function GitHubSyncDialog({ open, onOpenChange, projectId, projectName, h
             סנכרון commits אחרונים מהרפוזיטורי <strong>{projectName}</strong> ושמירתם כלוג שינויים.
           </p>
 
-          {!hasToken && (
+          {!hasSavedToken && (
             <div>
               <Label className="flex items-center gap-1">
                 <Key className="h-3.5 w-3.5" /> GitHub Token
@@ -86,10 +90,14 @@ export function GitHubSyncDialog({ open, onOpenChange, projectId, projectName, h
             </div>
           )}
 
+          {hasSavedToken && (
+            <p className="text-sm text-green-600">✓ ישתמש בטוקן השמור מההגדרות</p>
+          )}
+
           <Button
             className="w-full bg-accent text-accent-foreground hover:bg-accent/90"
             onClick={handleSync}
-            disabled={syncing || (!hasToken && !token.trim())}
+            disabled={syncing || (!hasSavedToken && !token.trim())}
           >
             {syncing ? (
               <><Loader2 className="h-4 w-4 animate-spin ml-2" /> מסנכרן...</>
