@@ -161,6 +161,9 @@ export default function Folders() {
           </div>
           {!isEditing && (
             <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
+              <Button variant="ghost" size="icon" className="h-7 w-7 text-accent" onClick={() => handleExportFolder(folder)} disabled={exportingId === folder.id}>
+                <Download className="h-3 w-3" />
+              </Button>
               <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => startEdit(folder)}><Pencil className="h-3 w-3" /></Button>
               <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => setDeleteId(folder.id)}><Trash2 className="h-3 w-3" /></Button>
             </div>
