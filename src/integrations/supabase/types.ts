@@ -458,6 +458,8 @@ export type Database = {
       }
       projects: {
         Row: {
+          ai_summary: string | null
+          ai_summary_updated_at: string | null
           auto_backup_enabled: boolean | null
           backup_interval: string | null
           category: string | null
@@ -478,6 +480,8 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          ai_summary?: string | null
+          ai_summary_updated_at?: string | null
           auto_backup_enabled?: boolean | null
           backup_interval?: string | null
           category?: string | null
@@ -498,6 +502,8 @@ export type Database = {
           user_id: string
         }
         Update: {
+          ai_summary?: string | null
+          ai_summary_updated_at?: string | null
           auto_backup_enabled?: boolean | null
           backup_interval?: string | null
           category?: string | null
