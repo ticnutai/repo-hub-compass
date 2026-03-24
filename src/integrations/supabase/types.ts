@@ -209,6 +209,39 @@ export type Database = {
           },
         ]
       }
+      migration_logs: {
+        Row: {
+          created_at: string | null
+          error_message: string | null
+          executed_at: string | null
+          id: string
+          name: string
+          sql_content: string
+          status: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          error_message?: string | null
+          executed_at?: string | null
+          id?: string
+          name: string
+          sql_content: string
+          status?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          error_message?: string | null
+          executed_at?: string | null
+          id?: string
+          name?: string
+          sql_content?: string
+          status?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           auto_sync_enabled: boolean
@@ -816,7 +849,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      execute_readonly_query: { Args: { query_text: string }; Returns: Json }
     }
     Enums: {
       backup_status: "success" | "failed" | "pending"
