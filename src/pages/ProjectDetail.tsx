@@ -78,9 +78,16 @@ export default function ProjectDetail() {
                 <div className="flex gap-2 mt-4">{project.tags.map(tag => <Badge key={tag} variant="outline" className="border-accent/50 text-accent">{tag}</Badge>)}</div>
               )}
             </div>
-            <Button className="bg-accent text-accent-foreground hover:bg-accent/90" onClick={handleBackup} disabled={createBackup.isPending}>
-              <HardDrive className="h-4 w-4 ml-2" /> {createBackup.isPending ? "מגבה..." : "גיבוי עכשיו"}
-            </Button>
+            <div className="flex flex-col gap-2">
+              {project.platform === "github" && project.repo_url && (
+                <Button variant="outline" className="border-accent text-accent hover:bg-accent/10" onClick={() => setSyncOpen(true)}>
+                  <RotateCw className="h-4 w-4 ml-2" /> סנכרן מ-GitHub
+                </Button>
+              )}
+              <Button className="bg-accent text-accent-foreground hover:bg-accent/90" onClick={handleBackup} disabled={createBackup.isPending}>
+                <HardDrive className="h-4 w-4 ml-2" /> {createBackup.isPending ? "מגבה..." : "גיבוי עכשיו"}
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
