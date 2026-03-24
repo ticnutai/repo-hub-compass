@@ -1,9 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Bot, Sparkles, Copy, Check } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useProject } from "@/hooks/use-data";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface ProjectAISummaryProps {
   projectId: string;
@@ -11,13 +13,16 @@ interface ProjectAISummaryProps {
 }
 
 export function ProjectAISummary({ projectId, projectName }: ProjectAISummaryProps) {
-  const [summary, setSummary] = useState<string | null>(null);
+  const { data: project } = useProject(projectId);
+  const queryClient = useQueryClient();
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
 
+  const summary = (project as any)?.ai_summary || null;
+  const summaryDate = (project as any)?.ai_summary_updated_at;
+
   const generateSummary = async () => {
     setLoading(true);
-    setSummary(null);
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error("לא מחובר");
@@ -38,8 +43,17 @@ export function ProjectAISummary({ projectId, projectName }: ProjectAISummaryPro
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "שגיאה ביצירת סיכום");
 
-      setSummary(data.summary);
-      toast.success("סיכום נוצר בהצלחה!");
+      // Save summary to database
+      await supabase
+        .from("projects")
+        .update({
+          ai_summary: data.summary,
+          ai_summary_updated_at: new Date().toISOString(),
+        } as any)
+        .eq("id", projectId);
+
+      queryClient.invalidateQueries({ queryKey: ["project", projectId] });
+      toast.success("סיכום נוצר ונשמר בהצלחה!");
     } catch (e: any) {
       toast.error(e.message);
     }
@@ -61,6 +75,11 @@ export function ProjectAISummary({ projectId, projectName }: ProjectAISummaryPro
           <CardTitle className="text-lg flex items-center gap-2">
             <Bot className="h-5 w-5 text-accent" />
             סיכום AI של הפרויקט
+            {summaryDate && (
+              <span className="text-xs font-normal text-muted-foreground">
+                (עודכן: {new Date(summaryDate).toLocaleDateString("he-IL")})
+              </span>
+            )}
           </CardTitle>
           <Button
             onClick={generateSummary}
@@ -91,7 +110,7 @@ export function ProjectAISummary({ projectId, projectName }: ProjectAISummaryPro
               לחץ על "צור סיכום" כדי שה-AI ינתח את הפרויקט ויכתוב סיכום מקיף בעברית
             </p>
             <p className="text-xs text-muted-foreground mt-1">
-              כולל ניתוח קבצי README, טכנולוגיות, שינויים וחיבורים
+              כולל ניתוח קבצי README, טכנולוגיות, שינויים וחיבורים • הסיכום נשמר אוטומטית
             </p>
           </div>
         )}
