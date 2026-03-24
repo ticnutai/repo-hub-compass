@@ -70,7 +70,7 @@ export function GitHubSyncDialog({ open, onOpenChange, projectId, projectName, h
             סנכרון commits אחרונים מהרפוזיטורי <strong>{projectName}</strong> ושמירתם כלוג שינויים.
           </p>
 
-          {!hasToken && (
+          {!hasToken && !hasSavedToken && (
             <div>
               <Label className="flex items-center gap-1">
                 <Key className="h-3.5 w-3.5" /> GitHub Token

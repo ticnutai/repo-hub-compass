@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Github, Loader2, Check } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { useCreateProject } from "@/hooks/use-data";
+import { useCreateProject, useProfile } from "@/hooks/use-data";
 import { toast } from "sonner";
 
 interface GitHubRepo {
@@ -28,6 +28,7 @@ interface Props {
 }
 
 export function GitHubImportDialog({ open, onOpenChange }: Props) {
+  const { data: profile } = useProfile();
   const [token, setToken] = useState("");
   const [repos, setRepos] = useState<GitHubRepo[]>([]);
   const [loading, setLoading] = useState(false);
@@ -36,12 +37,22 @@ export function GitHubImportDialog({ open, onOpenChange }: Props) {
   const [step, setStep] = useState<"token" | "select">("token");
   const createProject = useCreateProject();
 
-  const fetchRepos = async () => {
-    if (!token.trim()) return;
+  const savedToken = profile?.github_token;
+
+  // Auto-fetch repos if saved token exists
+  useEffect(() => {
+    if (open && savedToken && step === "token" && repos.length === 0) {
+      fetchRepos(savedToken);
+    }
+  }, [open, savedToken]);
+
+  const fetchRepos = async (useToken?: string) => {
+    const t = useToken || token.trim();
+    if (!t) return;
     setLoading(true);
     try {
       const res = await fetch("https://api.github.com/user/repos?per_page=100&sort=updated", {
-        headers: { Authorization: `Bearer ${token}`, Accept: "application/vnd.github.v3+json" },
+        headers: { Authorization: `Bearer ${t}`, Accept: "application/vnd.github.v3+json" },
       });
       if (!res.ok) throw new Error("טוקן לא תקין או שגיאת API");
       const data: GitHubRepo[] = await res.json();
@@ -77,9 +88,7 @@ export function GitHubImportDialog({ open, onOpenChange }: Props) {
           repo_url: repo.html_url,
         });
         success++;
-      } catch {
-        // skip duplicates or errors
-      }
+      } catch { /* skip */ }
     }
     toast.success(`${success} פרויקטים יובאו בהצלחה!`);
     setImporting(false);
@@ -107,25 +116,41 @@ export function GitHubImportDialog({ open, onOpenChange }: Props) {
           </DialogTitle>
         </DialogHeader>
 
-        {step === "token" && (
+        {step === "token" && !loading && (
           <div className="space-y-4 mt-2">
-            <p className="text-sm text-muted-foreground">
-              הזן GitHub Personal Access Token כדי לטעון את הרפוזיטוריים שלך.
-              <a href="https://github.com/settings/tokens/new" target="_blank" rel="noopener" className="text-accent hover:underline mr-1">
-                צור טוקן חדש
-              </a>
-            </p>
-            <div>
-              <Label>GitHub Token</Label>
-              <Input className="mt-1 font-mono text-sm" type="password" value={token} onChange={(e) => setToken(e.target.value)} placeholder="ghp_xxxxxxxxxxxx" />
-            </div>
-            <Button className="w-full bg-accent text-accent-foreground hover:bg-accent/90" onClick={fetchRepos} disabled={loading || !token.trim()}>
-              {loading ? <><Loader2 className="h-4 w-4 animate-spin ml-2" /> טוען...</> : "טען רפוזיטוריים"}
-            </Button>
+            {savedToken ? (
+              <div className="flex items-center gap-2 p-3 bg-green-50 border border-green-200 rounded-lg">
+                <Check className="h-4 w-4 text-green-600" />
+                <span className="text-sm text-green-700">טוען רפוזיטוריים עם הטוקן השמור...</span>
+              </div>
+            ) : (
+              <>
+                <p className="text-sm text-muted-foreground">
+                  הזן GitHub Personal Access Token כדי לטעון את הרפוזיטוריים שלך.{" "}
+                  <a href="https://github.com/settings/tokens/new" target="_blank" rel="noopener" className="text-accent hover:underline">
+                    צור טוקן חדש
+                  </a>
+                </p>
+                <div>
+                  <Label>GitHub Token</Label>
+                  <Input className="mt-1 font-mono text-sm" type="password" value={token} onChange={(e) => setToken(e.target.value)} placeholder="ghp_xxxxxxxxxxxx" />
+                </div>
+                <Button className="w-full bg-accent text-accent-foreground hover:bg-accent/90" onClick={() => fetchRepos()} disabled={!token.trim()}>
+                  טען רפוזיטוריים
+                </Button>
+              </>
+            )}
           </div>
         )}
 
-        {step === "select" && (
+        {loading && (
+          <div className="flex flex-col items-center gap-3 py-8">
+            <Loader2 className="h-8 w-8 animate-spin text-accent" />
+            <p className="text-sm text-muted-foreground">טוען רפוזיטוריים...</p>
+          </div>
+        )}
+
+        {step === "select" && !loading && (
           <div className="space-y-4 mt-2">
             <div className="flex items-center justify-between">
               <p className="text-sm text-muted-foreground">נמצאו {repos.length} רפוזיטוריים. בחר אילו לייבא:</p>
@@ -140,10 +165,7 @@ export function GitHubImportDialog({ open, onOpenChange }: Props) {
             <ScrollArea className="h-[300px] border rounded-lg">
               <div className="p-2 space-y-1">
                 {repos.map((repo) => (
-                  <label
-                    key={repo.id}
-                    className="flex items-center gap-3 p-3 rounded-lg hover:bg-secondary cursor-pointer transition-colors"
-                  >
+                  <label key={repo.id} className="flex items-center gap-3 p-3 rounded-lg hover:bg-secondary cursor-pointer transition-colors">
                     <Checkbox checked={selected.has(repo.id)} onCheckedChange={() => toggleRepo(repo.id)} />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
@@ -162,15 +184,9 @@ export function GitHubImportDialog({ open, onOpenChange }: Props) {
             </ScrollArea>
 
             <div className="flex gap-2">
-              <Button variant="outline" className="flex-1" onClick={() => setStep("token")}>חזור</Button>
-              <Button
-                className="flex-1 bg-accent text-accent-foreground hover:bg-accent/90"
-                onClick={importSelected}
-                disabled={selected.size === 0 || importing}
-              >
-                {importing ? <><Loader2 className="h-4 w-4 animate-spin ml-2" /> מייבא...</> : <>
-                  <Check className="h-4 w-4 ml-2" /> ייבא {selected.size} פרויקטים
-                </>}
+              <Button variant="outline" className="flex-1" onClick={() => { setStep("token"); setRepos([]); }}>חזור</Button>
+              <Button className="flex-1 bg-accent text-accent-foreground hover:bg-accent/90" onClick={importSelected} disabled={selected.size === 0 || importing}>
+                {importing ? <><Loader2 className="h-4 w-4 animate-spin ml-2" /> מייבא...</> : <><Check className="h-4 w-4 ml-2" /> ייבא {selected.size} פרויקטים</>}
               </Button>
             </div>
           </div>
