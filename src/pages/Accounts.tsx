@@ -27,6 +27,34 @@ const emptyForm: AccountForm = {
   service_name: "", service_type: "", username: "", email: "", password: "", api_key: "", notes: "",
 };
 
+// Service presets with their required fields and links
+const servicePresets = [
+  { name: "GitHub", type: "קוד", url: "https://github.com/settings/tokens", fields: ["username", "email", "password", "api_key"], icon: "🐙", hint: "צור Personal Access Token בהגדרות GitHub" },
+  { name: "Vercel", type: "אחסון", url: "https://vercel.com/account/tokens", fields: ["email", "api_key"], icon: "▲", hint: "צור Access Token מהגדרות החשבון" },
+  { name: "Netlify", type: "אחסון", url: "https://app.netlify.com/user/applications#personal-access-tokens", fields: ["email", "api_key"], icon: "🌐", hint: "Personal Access Token" },
+  { name: "AWS", type: "ענן", url: "https://console.aws.amazon.com/iam/home#/security_credentials", fields: ["username", "password", "api_key"], icon: "☁️", hint: "Access Key ID + Secret Access Key" },
+  { name: "Google Cloud", type: "ענן", url: "https://console.cloud.google.com/apis/credentials", fields: ["email", "api_key", "notes"], icon: "🔵", hint: "Service Account Key או API Key" },
+  { name: "Firebase", type: "ענן", url: "https://console.firebase.google.com/project/_/settings/serviceaccounts/adminsdk", fields: ["email", "api_key", "notes"], icon: "🔥", hint: "Project ID + Service Account JSON" },
+  { name: "Supabase", type: "בקנד", url: "https://supabase.com/dashboard/project/_/settings/api", fields: ["email", "password", "api_key", "notes"], icon: "⚡", hint: "Project URL + anon/service keys" },
+  { name: "OpenAI", type: "AI", url: "https://platform.openai.com/api-keys", fields: ["api_key"], icon: "🤖", hint: "API Key מדף ה-API Keys" },
+  { name: "Stripe", type: "תשלומים", url: "https://dashboard.stripe.com/apikeys", fields: ["api_key", "notes"], icon: "💳", hint: "Publishable + Secret Key" },
+  { name: "Twilio", type: "תקשורת", url: "https://console.twilio.com/", fields: ["username", "password", "api_key"], icon: "📱", hint: "Account SID + Auth Token" },
+  { name: "SendGrid", type: "אימייל", url: "https://app.sendgrid.com/settings/api_keys", fields: ["email", "api_key"], icon: "📧", hint: "API Key לשליחת מיילים" },
+  { name: "Cloudflare", type: "CDN", url: "https://dash.cloudflare.com/profile/api-tokens", fields: ["email", "api_key"], icon: "🛡️", hint: "API Token או Global API Key" },
+  { name: "Docker Hub", type: "קונטיינרים", url: "https://hub.docker.com/settings/security", fields: ["username", "password", "api_key"], icon: "🐳", hint: "Access Token" },
+  { name: "MongoDB Atlas", type: "מסד נתונים", url: "https://cloud.mongodb.com/", fields: ["username", "password", "notes"], icon: "🍃", hint: "Connection String + Database User" },
+  { name: "Redis Cloud", type: "מסד נתונים", url: "https://app.redislabs.com/", fields: ["username", "password", "notes"], icon: "🔴", hint: "Endpoint + Password" },
+  { name: "Cloudinary", type: "מדיה", url: "https://console.cloudinary.com/settings/api-keys", fields: ["username", "api_key", "notes"], icon: "🖼️", hint: "Cloud Name + API Key + Secret" },
+  { name: "WhatsApp Business", type: "תקשורת", url: "https://business.facebook.com/settings/", fields: ["username", "api_key", "notes"], icon: "💬", hint: "Phone Number ID + Access Token" },
+  { name: "Slack", type: "תקשורת", url: "https://api.slack.com/apps", fields: ["api_key", "notes"], icon: "💼", hint: "Bot Token (xoxb-...)" },
+  { name: "Discord", type: "תקשורת", url: "https://discord.com/developers/applications", fields: ["api_key", "notes"], icon: "🎮", hint: "Bot Token" },
+  { name: "Notion", type: "ניהול", url: "https://www.notion.so/my-integrations", fields: ["api_key", "notes"], icon: "📝", hint: "Internal Integration Token" },
+  { name: "Linear", type: "ניהול", url: "https://linear.app/settings/api", fields: ["api_key"], icon: "🔷", hint: "Personal API Key" },
+  { name: "Jira", type: "ניהול", url: "https://id.atlassian.com/manage-profile/security/api-tokens", fields: ["email", "api_key", "notes"], icon: "🔵", hint: "Email + API Token" },
+  { name: "DigitalOcean", type: "ענן", url: "https://cloud.digitalocean.com/account/api/tokens", fields: ["api_key"], icon: "🌊", hint: "Personal Access Token" },
+  { name: "Heroku", type: "אחסון", url: "https://dashboard.heroku.com/account", fields: ["email", "api_key"], icon: "🟣", hint: "API Key מהגדרות החשבון" },
+];
+
 // Parse credentials from text content (env files, CSV, JSON, plain text)
 function parseCredentials(content: string, fileName: string): Partial<AccountForm>[] {
   const results: Partial<AccountForm>[] = [];
