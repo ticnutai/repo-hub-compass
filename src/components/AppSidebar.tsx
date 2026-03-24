@@ -19,6 +19,7 @@ const items = [
   { title: "חיבורים", url: "/services", icon: Plug },
   { title: "תיקיות", url: "/folders", icon: FolderOpen },
   { title: "לוח משימות", url: "/kanban", icon: Kanban },
+  { title: "מעקב זמן", url: "/time", icon: Timer },
   { title: "ניטור זמינות", url: "/uptime", icon: Globe },
   { title: "גיבויים", url: "/backups", icon: HardDrive },
   { title: "הגדרות", url: "/settings", icon: Settings },

@@ -53,6 +53,7 @@ const App = () => (
               <Route path="/folders" element={<Folders />} />
               <Route path="/uptime" element={<UptimeMonitoring />} />
               <Route path="/kanban" element={<KanbanBoard />} />
+              <Route path="/time" element={<TimeTracking />} />
               <Route path="/backups" element={<Backups />} />
               <Route path="/settings" element={<SettingsPage />} />
             </Route>
