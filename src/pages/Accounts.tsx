@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { Plus, Eye, EyeOff, Search, Key, User, Pencil, Trash2, Upload, X, Check, FileText, Copy } from "lucide-react";
+import { Plus, Eye, EyeOff, Search, Key, User, Pencil, Trash2, Upload, X, Check, FileText, Copy, ExternalLink, ChevronDown, ChevronUp } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
