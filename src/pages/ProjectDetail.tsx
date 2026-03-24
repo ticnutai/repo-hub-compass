@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { GitHubSyncDialog } from "@/components/GitHubSyncDialog";
 import { ProjectAnalysis } from "@/components/ProjectAnalysis";
+import { ProjectConnections } from "@/components/ProjectConnections";
 
 const statusLabels: Record<string, string> = { active: "פעיל", paused: "מושהה", completed: "הושלם" };
 const changeTypeLabels: Record<string, string> = { feature: "פיצ'ר חדש", fix: "תיקון", update: "עדכון", deploy: "דיפלוי" };
@@ -253,6 +254,8 @@ export default function ProjectDetail() {
       </Card>
 
       {isGithub && <ProjectAnalysis projectId={project.id} isGithub={!!isGithub} />}
+
+      <ProjectConnections projectId={project.id} />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card className="border-2 border-border">

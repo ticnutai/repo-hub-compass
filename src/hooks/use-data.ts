@@ -361,3 +361,47 @@ export function useDeleteServiceConnection() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["service_connections"] }),
   });
 }
+
+// ---- Service Connection <-> Project Links ----
+export function useProjectServiceConnections(projectId?: string) {
+  return useQuery({
+    queryKey: ["service_connection_projects", projectId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("service_connection_projects" as any)
+        .select("*, service_connections(*)")
+        .eq("project_id", projectId!);
+      if (error) throw error;
+      return data as any[];
+    },
+    enabled: !!projectId,
+  });
+}
+
+export function useLinkServiceConnection() {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+  return useMutation({
+    mutationFn: async (link: { service_connection_id: string; project_id: string }) => {
+      const { data, error } = await supabase
+        .from("service_connection_projects" as any)
+        .insert({ ...link, user_id: user!.id } as any)
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["service_connection_projects"] }),
+  });
+}
+
+export function useUnlinkServiceConnection() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("service_connection_projects" as any).delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["service_connection_projects"] }),
+  });
+}
