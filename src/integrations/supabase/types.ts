@@ -381,6 +381,54 @@ export type Database = {
         }
         Relationships: []
       }
+      service_connections: {
+        Row: {
+          config: Json
+          connection_type: string
+          created_at: string
+          credentials: Json
+          id: string
+          last_tested_at: string | null
+          notes: string | null
+          provider: string
+          service_category: string
+          service_name: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          config?: Json
+          connection_type?: string
+          created_at?: string
+          credentials?: Json
+          id?: string
+          last_tested_at?: string | null
+          notes?: string | null
+          provider?: string
+          service_category?: string
+          service_name: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          config?: Json
+          connection_type?: string
+          created_at?: string
+          credentials?: Json
+          id?: string
+          last_tested_at?: string | null
+          notes?: string | null
+          provider?: string
+          service_category?: string
+          service_name?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
