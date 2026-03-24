@@ -1,14 +1,15 @@
 import { useState } from "react";
-import { Search, Plus, LayoutGrid, List, Github, Monitor, FolderGit2, Download } from "lucide-react";
+import { Search, Plus, LayoutGrid, List, Github, Monitor, FolderGit2, Trash2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { useProjects, useCreateProject } from "@/hooks/use-data";
+import { useProjects, useCreateProject, useDeleteProject } from "@/hooks/use-data";
 import { Link } from "react-router-dom";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
@@ -24,12 +25,14 @@ const statusColors: Record<string, string> = {
 export default function Projects() {
   const { data: projects, isLoading } = useProjects();
   const createProject = useCreateProject();
+  const deleteProject = useDeleteProject();
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [platformFilter, setPlatformFilter] = useState("all");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [open, setOpen] = useState(false);
   const [githubOpen, setGithubOpen] = useState(false);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
 
   const [newName, setNewName] = useState("");
   const [newDesc, setNewDesc] = useState("");
@@ -54,6 +57,19 @@ export default function Projects() {
       toast.error(e.message);
     }
   };
+
+  const handleDelete = async () => {
+    if (!deleteId) return;
+    try {
+      await deleteProject.mutateAsync(deleteId);
+      toast.success("פרויקט נמחק!");
+      setDeleteId(null);
+    } catch (e: any) {
+      toast.error(e.message);
+    }
+  };
+
+  const deleteTargetName = deleteId ? (projects || []).find(p => p.id === deleteId)?.name : "";
 
   return (
     <div className="space-y-6" dir="rtl">
@@ -126,29 +142,40 @@ export default function Projects() {
       ) : (
         <div className={viewMode === "grid" ? "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4" : "space-y-3"}>
           {filtered.map((project) => (
-            <Link key={project.id} to={`/projects/${project.id}`}>
-              <Card className="border-2 border-border hover:border-accent transition-all hover:shadow-md cursor-pointer">
-                <CardContent className={`p-5 ${viewMode === "list" ? "flex items-center justify-between" : "space-y-3"}`}>
-                  <div className={viewMode === "list" ? "flex items-center gap-4 flex-1" : ""}>
-                    <div className="flex items-center gap-2 mb-1">
-                      {project.platform === 'github' ? <Github className="h-4 w-4 text-muted-foreground" /> : <Monitor className="h-4 w-4 text-muted-foreground" />}
-                      <h3 className="font-semibold text-foreground">{project.name}</h3>
-                    </div>
-                    {viewMode === "grid" && <p className="text-sm text-muted-foreground line-clamp-2">{project.description}</p>}
-                    {project.tags && project.tags.length > 0 && (
-                      <div className="flex flex-wrap gap-1.5 mt-2">
-                        {project.tags.map(tag => <Badge key={tag} variant="outline" className="text-xs border-accent/50 text-accent">{tag}</Badge>)}
+            <div key={project.id} className="relative group">
+              <Link to={`/projects/${project.id}`}>
+                <Card className="border-2 border-border hover:border-accent transition-all hover:shadow-md cursor-pointer">
+                  <CardContent className={`p-5 ${viewMode === "list" ? "flex items-center justify-between" : "space-y-3"}`}>
+                    <div className={viewMode === "list" ? "flex items-center gap-4 flex-1" : ""}>
+                      <div className="flex items-center gap-2 mb-1">
+                        {project.platform === 'github' ? <Github className="h-4 w-4 text-muted-foreground" /> : <Monitor className="h-4 w-4 text-muted-foreground" />}
+                        <h3 className="font-semibold text-foreground">{project.name}</h3>
                       </div>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2 mt-3">
-                    <Badge className={`${statusColors[project.status]} text-xs`}>{statusLabels[project.status]}</Badge>
-                    <span className="text-xs text-muted-foreground">{project.language}</span>
-                    <span className="text-xs text-muted-foreground mr-auto">{new Date(project.updated_at).toLocaleDateString("he-IL")}</span>
-                  </div>
-                </CardContent>
-              </Card>
-            </Link>
+                      {viewMode === "grid" && <p className="text-sm text-muted-foreground line-clamp-2">{project.description}</p>}
+                      {project.tags && project.tags.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5 mt-2">
+                          {project.tags.map(tag => <Badge key={tag} variant="outline" className="text-xs border-accent/50 text-accent">{tag}</Badge>)}
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 mt-3">
+                      <Badge className={`${statusColors[project.status]} text-xs`}>{statusLabels[project.status]}</Badge>
+                      <span className="text-xs text-muted-foreground">{project.language}</span>
+                      <span className="text-xs text-muted-foreground mr-auto">{new Date(project.updated_at).toLocaleDateString("he-IL")}</span>
+                    </div>
+                  </CardContent>
+                </Card>
+              </Link>
+              {/* Quick delete button */}
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute top-2 left-2 h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive hover:bg-destructive/10"
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); setDeleteId(project.id); }}
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
+            </div>
           ))}
         </div>
       )}
@@ -159,6 +186,24 @@ export default function Projects() {
           <p className="text-muted-foreground">לא נמצאו פרויקטים</p>
         </div>
       )}
+
+      {/* Delete Confirmation */}
+      <AlertDialog open={!!deleteId} onOpenChange={(v) => { if (!v) setDeleteId(null); }}>
+        <AlertDialogContent dir="rtl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>מחיקת פרויקט</AlertDialogTitle>
+            <AlertDialogDescription>
+              האם אתה בטוח שברצונך למחוק את הפרויקט "{deleteTargetName}"? פעולה זו אינה ניתנת לביטול.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-row-reverse gap-2">
+            <AlertDialogCancel>ביטול</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              מחק פרויקט
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
