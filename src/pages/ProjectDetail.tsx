@@ -1,12 +1,13 @@
 import { useParams, Link } from "react-router-dom";
-import { ArrowRight, Github, Monitor, Plus, Bug, RefreshCw, Rocket, HardDrive, Eye, EyeOff, ExternalLink } from "lucide-react";
+import { ArrowRight, Github, Monitor, Plus, Bug, RefreshCw, Rocket, HardDrive, Eye, EyeOff, ExternalLink, RotateCw } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useProject, useChangelogs, useBackups, useAccounts, useCreateBackup } from "@/hooks/use-data";
+import { useProject, useChangelogs, useBackups, useAccounts, useCreateBackup, useProfile } from "@/hooks/use-data";
 import { useState } from "react";
 import { toast } from "sonner";
+import { GitHubSyncDialog } from "@/components/GitHubSyncDialog";
 
 const statusLabels: Record<string, string> = { active: "פעיל", paused: "מושהה", completed: "הושלם" };
 const changeTypeLabels: Record<string, string> = { feature: "פיצ'ר חדש", fix: "תיקון", update: "עדכון", deploy: "דיפלוי" };
@@ -18,8 +19,10 @@ export default function ProjectDetail() {
   const { data: changelogs } = useChangelogs(id);
   const { data: backups } = useBackups(id);
   const { data: accounts } = useAccounts();
+  const { data: profile } = useProfile();
   const createBackup = useCreateBackup();
   const [showPasswords, setShowPasswords] = useState<Record<string, boolean>>({});
+  const [syncOpen, setSyncOpen] = useState(false);
 
   const handleBackup = async () => {
     if (!id) return;
@@ -65,6 +68,9 @@ export default function ProjectDetail() {
                 <span>קטגוריה: <strong className="text-foreground">{project.category}</strong></span>
                 <span>נוצר: <strong className="text-foreground">{new Date(project.created_at).toLocaleDateString("he-IL")}</strong></span>
                 <span>עודכן: <strong className="text-foreground">{new Date(project.updated_at).toLocaleDateString("he-IL")}</strong></span>
+                {(project as any).last_synced_at && (
+                  <span>סנכרון אחרון: <strong className="text-foreground">{new Date((project as any).last_synced_at).toLocaleDateString("he-IL")}</strong></span>
+                )}
               </div>
               {project.repo_url && (
                 <a href={project.repo_url} target="_blank" rel="noopener" className="inline-flex items-center gap-1 mt-3 text-sm text-accent hover:underline">
@@ -75,9 +81,16 @@ export default function ProjectDetail() {
                 <div className="flex gap-2 mt-4">{project.tags.map(tag => <Badge key={tag} variant="outline" className="border-accent/50 text-accent">{tag}</Badge>)}</div>
               )}
             </div>
-            <Button className="bg-accent text-accent-foreground hover:bg-accent/90" onClick={handleBackup} disabled={createBackup.isPending}>
-              <HardDrive className="h-4 w-4 ml-2" /> {createBackup.isPending ? "מגבה..." : "גיבוי עכשיו"}
-            </Button>
+            <div className="flex flex-col gap-2">
+              {project.platform === "github" && project.repo_url && (
+                <Button variant="outline" className="border-accent text-accent hover:bg-accent/10" onClick={() => setSyncOpen(true)}>
+                  <RotateCw className="h-4 w-4 ml-2" /> סנכרן מ-GitHub
+                </Button>
+              )}
+              <Button className="bg-accent text-accent-foreground hover:bg-accent/90" onClick={handleBackup} disabled={createBackup.isPending}>
+                <HardDrive className="h-4 w-4 ml-2" /> {createBackup.isPending ? "מגבה..." : "גיבוי עכשיו"}
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -150,6 +163,16 @@ export default function ProjectDetail() {
           )}
         </CardContent>
       </Card>
+
+      {project.platform === "github" && project.repo_url && (
+        <GitHubSyncDialog
+          open={syncOpen}
+          onOpenChange={setSyncOpen}
+          projectId={project.id}
+          projectName={project.name}
+          hasToken={!!profile?.github_token}
+        />
+      )}
     </div>
   );
 }
