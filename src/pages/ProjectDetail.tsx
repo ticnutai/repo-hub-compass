@@ -1,10 +1,15 @@
-import { useParams, Link } from "react-router-dom";
-import { ArrowRight, Github, Monitor, Plus, Bug, RefreshCw, Rocket, HardDrive, Eye, EyeOff, ExternalLink, RotateCw, Download, Upload, ScanSearch } from "lucide-react";
+import { useParams, Link, useNavigate } from "react-router-dom";
+import { ArrowRight, Github, Monitor, Plus, Bug, RefreshCw, Rocket, HardDrive, Eye, EyeOff, ExternalLink, RotateCw, Download, Upload, ScanSearch, Pencil, Trash2, X, Check } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useProject, useChangelogs, useBackups, useAccounts, useCreateBackup, useCreateChangelog, useProfile } from "@/hooks/use-data";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { useProject, useChangelogs, useBackups, useAccounts, useCreateBackup, useCreateChangelog, useProfile, useUpdateProject, useDeleteProject } from "@/hooks/use-data";
 import { useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -17,16 +22,70 @@ const changeTypeIcons: Record<string, typeof Plus> = { feature: Plus, fix: Bug, 
 
 export default function ProjectDetail() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const { data: project, isLoading } = useProject(id);
   const { data: changelogs } = useChangelogs(id);
   const { data: backups } = useBackups(id);
   const { data: accounts } = useAccounts();
   const { data: profile } = useProfile();
   const createBackup = useCreateBackup();
+  const updateProject = useUpdateProject();
+  const deleteProject = useDeleteProject();
   const [showPasswords, setShowPasswords] = useState<Record<string, boolean>>({});
   const [syncOpen, setSyncOpen] = useState(false);
   const [pulling, setPulling] = useState(false);
   const [pushing, setPushing] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+
+  // Edit form state
+  const [editName, setEditName] = useState("");
+  const [editDesc, setEditDesc] = useState("");
+  const [editLang, setEditLang] = useState("");
+  const [editCategory, setEditCategory] = useState("");
+  const [editStatus, setEditStatus] = useState<"active" | "paused" | "completed">("active");
+  const [editTags, setEditTags] = useState("");
+
+  const startEdit = () => {
+    if (!project) return;
+    setEditName(project.name);
+    setEditDesc(project.description || "");
+    setEditLang(project.language || "");
+    setEditCategory(project.category || "");
+    setEditStatus(project.status);
+    setEditTags((project.tags || []).join(", "));
+    setEditing(true);
+  };
+
+  const saveEdit = async () => {
+    if (!id || !editName.trim()) return;
+    try {
+      await updateProject.mutateAsync({
+        id,
+        name: editName,
+        description: editDesc,
+        language: editLang,
+        category: editCategory,
+        status: editStatus,
+        tags: editTags.split(",").map(t => t.trim()).filter(Boolean),
+      });
+      toast.success("פרויקט עודכן בהצלחה!");
+      setEditing(false);
+    } catch (e: any) {
+      toast.error(e.message);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!id) return;
+    try {
+      await deleteProject.mutateAsync(id);
+      toast.success("פרויקט נמחק!");
+      navigate("/projects");
+    } catch (e: any) {
+      toast.error(e.message);
+    }
+  };
 
   const handleBackup = async () => {
     if (!id) return;
@@ -44,19 +103,12 @@ export default function ProjectDetail() {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error("לא מחובר");
-
       const projectId_ = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-      const res = await fetch(
-        `https://${projectId_}.supabase.co/functions/v1/sync-github`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${session.access_token}`,
-          },
-          body: JSON.stringify({ project_id: id }),
-        }
-      );
+      const res = await fetch(`https://${projectId_}.supabase.co/functions/v1/sync-github`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ project_id: id }),
+      });
       const result = await res.json();
       if (!res.ok) throw new Error(result.error || "שגיאה במשיכה");
       toast.success(`משיכה הושלמה! ${result.imported} commits חדשים`);
@@ -72,19 +124,12 @@ export default function ProjectDetail() {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error("לא מחובר");
-
       const projectId_ = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-      const res = await fetch(
-        `https://${projectId_}.supabase.co/functions/v1/push-github`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${session.access_token}`,
-          },
-          body: JSON.stringify({ project_id: id }),
-        }
-      );
+      const res = await fetch(`https://${projectId_}.supabase.co/functions/v1/push-github`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ project_id: id }),
+      });
       const result = await res.json();
       if (!res.ok) throw new Error(result.error || "שגיאה בדחיפה");
       toast.success(result.message || "דחיפה הושלמה!");
@@ -117,69 +162,96 @@ export default function ProjectDetail() {
 
       <Card className="border-2 border-accent">
         <CardContent className="p-6">
-          <div className="flex items-start justify-between flex-wrap gap-4">
-            <div>
-              <div className="flex items-center gap-3 mb-2">
-                {project.platform === "github" ? <Github className="h-5 w-5 text-accent" /> : <Monitor className="h-5 w-5 text-accent" />}
-                <h2 className="text-2xl font-bold text-foreground">{project.name}</h2>
-                <Badge variant="outline" className="border-accent text-accent">{statusLabels[project.status]}</Badge>
+          {editing ? (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold">עריכת פרויקט</h3>
+                <div className="flex gap-2">
+                  <Button variant="ghost" size="sm" onClick={() => setEditing(false)}><X className="h-4 w-4 ml-1" /> ביטול</Button>
+                  <Button size="sm" className="bg-accent text-accent-foreground hover:bg-accent/90" onClick={saveEdit} disabled={updateProject.isPending}>
+                    <Check className="h-4 w-4 ml-1" /> {updateProject.isPending ? "שומר..." : "שמור"}
+                  </Button>
+                </div>
               </div>
-              <p className="text-muted-foreground mb-4">{project.description}</p>
-              <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
-                <span>שפה: <strong className="text-foreground">{project.language}</strong></span>
-                <span>קטגוריה: <strong className="text-foreground">{project.category}</strong></span>
-                <span>נוצר: <strong className="text-foreground">{new Date(project.created_at).toLocaleDateString("he-IL")}</strong></span>
-                <span>עודכן: <strong className="text-foreground">{new Date(project.updated_at).toLocaleDateString("he-IL")}</strong></span>
-                {(project as any).last_synced_at && (
-                  <span>סנכרון אחרון: <strong className="text-foreground">{new Date((project as any).last_synced_at).toLocaleDateString("he-IL")}</strong></span>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div><Label>שם הפרויקט</Label><Input className="mt-1" value={editName} onChange={e => setEditName(e.target.value)} /></div>
+                <div><Label>סטטוס</Label>
+                  <Select value={editStatus} onValueChange={(v: any) => setEditStatus(v)}>
+                    <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="active">פעיל</SelectItem>
+                      <SelectItem value="paused">מושהה</SelectItem>
+                      <SelectItem value="completed">הושלם</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div><Label>שפה</Label><Input className="mt-1" value={editLang} onChange={e => setEditLang(e.target.value)} /></div>
+                <div><Label>קטגוריה</Label><Input className="mt-1" value={editCategory} onChange={e => setEditCategory(e.target.value)} /></div>
+              </div>
+              <div><Label>תיאור</Label><Textarea className="mt-1" value={editDesc} onChange={e => setEditDesc(e.target.value)} /></div>
+              <div><Label>תגיות (מופרדות בפסיק)</Label><Input className="mt-1" value={editTags} onChange={e => setEditTags(e.target.value)} placeholder="react, typescript, web" /></div>
+            </div>
+          ) : (
+            <div className="flex items-start justify-between flex-wrap gap-4">
+              <div>
+                <div className="flex items-center gap-3 mb-2">
+                  {project.platform === "github" ? <Github className="h-5 w-5 text-accent" /> : <Monitor className="h-5 w-5 text-accent" />}
+                  <h2 className="text-2xl font-bold text-foreground">{project.name}</h2>
+                  <Badge variant="outline" className="border-accent text-accent">{statusLabels[project.status]}</Badge>
+                </div>
+                <p className="text-muted-foreground mb-4">{project.description}</p>
+                <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
+                  <span>שפה: <strong className="text-foreground">{project.language}</strong></span>
+                  <span>קטגוריה: <strong className="text-foreground">{project.category}</strong></span>
+                  <span>נוצר: <strong className="text-foreground">{new Date(project.created_at).toLocaleDateString("he-IL")}</strong></span>
+                  <span>עודכן: <strong className="text-foreground">{new Date(project.updated_at).toLocaleDateString("he-IL")}</strong></span>
+                  {(project as any).last_synced_at && (
+                    <span>סנכרון אחרון: <strong className="text-foreground">{new Date((project as any).last_synced_at).toLocaleDateString("he-IL")}</strong></span>
+                  )}
+                </div>
+                {project.repo_url && (
+                  <a href={project.repo_url} target="_blank" rel="noopener" className="inline-flex items-center gap-1 mt-3 text-sm text-accent hover:underline">
+                    <ExternalLink className="h-3 w-3" /> פתח ב-GitHub
+                  </a>
+                )}
+                {project.tags && project.tags.length > 0 && (
+                  <div className="flex gap-2 mt-4">{project.tags.map(tag => <Badge key={tag} variant="outline" className="border-accent/50 text-accent">{tag}</Badge>)}</div>
                 )}
               </div>
-              {project.repo_url && (
-                <a href={project.repo_url} target="_blank" rel="noopener" className="inline-flex items-center gap-1 mt-3 text-sm text-accent hover:underline">
-                  <ExternalLink className="h-3 w-3" /> פתח ב-GitHub
-                </a>
-              )}
-              {project.tags && project.tags.length > 0 && (
-                <div className="flex gap-2 mt-4">{project.tags.map(tag => <Badge key={tag} variant="outline" className="border-accent/50 text-accent">{tag}</Badge>)}</div>
-              )}
-            </div>
-            <div className="flex flex-col gap-2">
-              {isGithub && (
-                <>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      className="border-green-500 text-green-700 hover:bg-green-50 flex-1"
-                      onClick={handlePull}
-                      disabled={pulling}
-                    >
-                      <Download className="h-4 w-4 ml-2" />
-                      {pulling ? "מושך..." : "משוך (Pull)"}
-                    </Button>
-                    <Button
-                      variant="outline"
-                      className="border-blue-500 text-blue-700 hover:bg-blue-50 flex-1"
-                      onClick={handlePush}
-                      disabled={pushing}
-                    >
-                      <Upload className="h-4 w-4 ml-2" />
-                      {pushing ? "דוחף..." : "דחוף (Push)"}
-                    </Button>
-                  </div>
-                  <Button variant="outline" className="border-accent text-accent hover:bg-accent/10" onClick={() => setSyncOpen(true)}>
-                    <RotateCw className="h-4 w-4 ml-2" /> סנכרון מלא
+              <div className="flex flex-col gap-2">
+                {/* Edit & Delete */}
+                <div className="flex gap-2">
+                  <Button variant="outline" className="border-accent text-accent hover:bg-accent/10 flex-1" onClick={startEdit}>
+                    <Pencil className="h-4 w-4 ml-2" /> ערוך
                   </Button>
-                </>
-              )}
-              <Button className="bg-accent text-accent-foreground hover:bg-accent/90" onClick={handleBackup} disabled={createBackup.isPending}>
-                <HardDrive className="h-4 w-4 ml-2" /> {createBackup.isPending ? "מגבה..." : "גיבוי עכשיו"}
-              </Button>
+                  <Button variant="outline" className="border-destructive text-destructive hover:bg-destructive/10 flex-1" onClick={() => setDeleteOpen(true)}>
+                    <Trash2 className="h-4 w-4 ml-2" /> מחק
+                  </Button>
+                </div>
+                {isGithub && (
+                  <>
+                    <div className="flex gap-2">
+                      <Button variant="outline" className="border-green-500 text-green-700 hover:bg-green-50 flex-1" onClick={handlePull} disabled={pulling}>
+                        <Download className="h-4 w-4 ml-2" /> {pulling ? "מושך..." : "משוך (Pull)"}
+                      </Button>
+                      <Button variant="outline" className="border-blue-500 text-blue-700 hover:bg-blue-50 flex-1" onClick={handlePush} disabled={pushing}>
+                        <Upload className="h-4 w-4 ml-2" /> {pushing ? "דוחף..." : "דחוף (Push)"}
+                      </Button>
+                    </div>
+                    <Button variant="outline" className="border-accent text-accent hover:bg-accent/10" onClick={() => setSyncOpen(true)}>
+                      <RotateCw className="h-4 w-4 ml-2" /> סנכרון מלא
+                    </Button>
+                  </>
+                )}
+                <Button className="bg-accent text-accent-foreground hover:bg-accent/90" onClick={handleBackup} disabled={createBackup.isPending}>
+                  <HardDrive className="h-4 w-4 ml-2" /> {createBackup.isPending ? "מגבה..." : "גיבוי עכשיו"}
+                </Button>
+              </div>
             </div>
-          </div>
+          )}
         </CardContent>
       </Card>
 
-      {/* Project Analysis */}
       {isGithub && <ProjectAnalysis projectId={project.id} isGithub={!!isGithub} />}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -252,14 +324,26 @@ export default function ProjectDetail() {
       </Card>
 
       {isGithub && (
-        <GitHubSyncDialog
-          open={syncOpen}
-          onOpenChange={setSyncOpen}
-          projectId={project.id}
-          projectName={project.name}
-          hasToken={!!profile?.github_token}
-        />
+        <GitHubSyncDialog open={syncOpen} onOpenChange={setSyncOpen} projectId={project.id} projectName={project.name} hasToken={!!profile?.github_token} />
       )}
+
+      {/* Delete Confirmation */}
+      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <AlertDialogContent dir="rtl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>מחיקת פרויקט</AlertDialogTitle>
+            <AlertDialogDescription>
+              האם אתה בטוח שברצונך למחוק את הפרויקט "{project.name}"? פעולה זו תמחק גם את כל הגיבויים, השינויים והחשבונות המקושרים.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-row-reverse gap-2">
+            <AlertDialogCancel>ביטול</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              מחק פרויקט
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
