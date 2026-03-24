@@ -1,5 +1,5 @@
 import { useParams, Link } from "react-router-dom";
-import { ArrowRight, Github, Monitor, Plus, Bug, RefreshCw, Rocket, HardDrive, Eye, EyeOff, ExternalLink, RotateCw, Download, Upload } from "lucide-react";
+import { ArrowRight, Github, Monitor, Plus, Bug, RefreshCw, Rocket, HardDrive, Eye, EyeOff, ExternalLink, RotateCw, Download, Upload, ScanSearch } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { GitHubSyncDialog } from "@/components/GitHubSyncDialog";
+import { ProjectAnalysis } from "@/components/ProjectAnalysis";
 
 const statusLabels: Record<string, string> = { active: "פעיל", paused: "מושהה", completed: "הושלם" };
 const changeTypeLabels: Record<string, string> = { feature: "פיצ'ר חדש", fix: "תיקון", update: "עדכון", deploy: "דיפלוי" };
@@ -177,6 +178,9 @@ export default function ProjectDetail() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Project Analysis */}
+      {isGithub && <ProjectAnalysis projectId={project.id} isGithub={!!isGithub} />}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card className="border-2 border-border">
