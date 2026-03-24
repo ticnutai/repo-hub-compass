@@ -405,12 +405,3 @@ export function useUnlinkServiceConnection() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["service_connection_projects"] }),
   });
 }
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase.from("service_connections" as any).delete().eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["service_connections"] }),
-  });
-}
