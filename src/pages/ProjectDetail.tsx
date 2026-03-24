@@ -262,6 +262,8 @@ export default function ProjectDetail() {
 
       {isGithub && <ProjectAnalysis projectId={project.id} isGithub={!!isGithub} />}
 
+      <ProjectAISummary projectId={project.id} projectName={project.name} />
+
       <ProjectConnections projectId={project.id} />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
