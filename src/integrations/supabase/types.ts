@@ -14,7 +14,232 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      account_projects: {
+        Row: {
+          account_id: string
+          id: string
+          project_id: string
+          user_id: string
+        }
+        Insert: {
+          account_id: string
+          id?: string
+          project_id: string
+          user_id: string
+        }
+        Update: {
+          account_id?: string
+          id?: string
+          project_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "account_projects_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "account_projects_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      accounts: {
+        Row: {
+          api_key: string | null
+          created_at: string
+          email: string | null
+          id: string
+          notes: string | null
+          password: string | null
+          service_name: string
+          service_type: string | null
+          updated_at: string
+          user_id: string
+          username: string | null
+        }
+        Insert: {
+          api_key?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          notes?: string | null
+          password?: string | null
+          service_name: string
+          service_type?: string | null
+          updated_at?: string
+          user_id: string
+          username?: string | null
+        }
+        Update: {
+          api_key?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          notes?: string | null
+          password?: string | null
+          service_name?: string
+          service_type?: string | null
+          updated_at?: string
+          user_id?: string
+          username?: string | null
+        }
+        Relationships: []
+      }
+      backups: {
+        Row: {
+          backup_type: Database["public"]["Enums"]["backup_type"]
+          created_at: string
+          id: string
+          project_id: string
+          size: string | null
+          status: Database["public"]["Enums"]["backup_status"]
+          user_id: string
+        }
+        Insert: {
+          backup_type?: Database["public"]["Enums"]["backup_type"]
+          created_at?: string
+          id?: string
+          project_id: string
+          size?: string | null
+          status?: Database["public"]["Enums"]["backup_status"]
+          user_id: string
+        }
+        Update: {
+          backup_type?: Database["public"]["Enums"]["backup_type"]
+          created_at?: string
+          id?: string
+          project_id?: string
+          size?: string | null
+          status?: Database["public"]["Enums"]["backup_status"]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "backups_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      changelogs: {
+        Row: {
+          change_type: Database["public"]["Enums"]["change_type"]
+          created_at: string
+          description: string
+          id: string
+          project_id: string
+          user_id: string
+        }
+        Insert: {
+          change_type?: Database["public"]["Enums"]["change_type"]
+          created_at?: string
+          description: string
+          id?: string
+          project_id: string
+          user_id: string
+        }
+        Update: {
+          change_type?: Database["public"]["Enums"]["change_type"]
+          created_at?: string
+          description?: string
+          id?: string
+          project_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "changelogs_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          display_name: string | null
+          email: string | null
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          display_name?: string | null
+          email?: string | null
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          display_name?: string | null
+          email?: string | null
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      projects: {
+        Row: {
+          category: string | null
+          created_at: string
+          description: string | null
+          id: string
+          language: string | null
+          local_path: string | null
+          name: string
+          platform: Database["public"]["Enums"]["project_platform"]
+          repo_url: string | null
+          status: Database["public"]["Enums"]["project_status"]
+          tags: string[] | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          language?: string | null
+          local_path?: string | null
+          name: string
+          platform?: Database["public"]["Enums"]["project_platform"]
+          repo_url?: string | null
+          status?: Database["public"]["Enums"]["project_status"]
+          tags?: string[] | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          language?: string | null
+          local_path?: string | null
+          name?: string
+          platform?: Database["public"]["Enums"]["project_platform"]
+          repo_url?: string | null
+          status?: Database["public"]["Enums"]["project_status"]
+          tags?: string[] | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -23,7 +248,11 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      backup_status: "success" | "failed" | "pending"
+      backup_type: "auto" | "manual"
+      change_type: "feature" | "fix" | "update" | "deploy"
+      project_platform: "github" | "local"
+      project_status: "active" | "paused" | "completed"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +379,12 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      backup_status: ["success", "failed", "pending"],
+      backup_type: ["auto", "manual"],
+      change_type: ["feature", "fix", "update", "deploy"],
+      project_platform: ["github", "local"],
+      project_status: ["active", "paused", "completed"],
+    },
   },
 } as const
