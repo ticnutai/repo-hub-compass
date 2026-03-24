@@ -59,9 +59,14 @@ export default function Projects() {
     <div className="space-y-6" dir="rtl">
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold text-foreground">פרויקטים</h2>
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild>
-            <Button className="bg-accent text-accent-foreground hover:bg-accent/90"><Plus className="h-4 w-4 ml-2" />פרויקט חדש</Button>
+        <div className="flex gap-2">
+          <Button variant="outline" className="border-accent text-accent hover:bg-accent/10" onClick={() => setGithubOpen(true)}>
+            <Github className="h-4 w-4 ml-2" /> ייבוא מ-GitHub
+          </Button>
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+              <Button className="bg-accent text-accent-foreground hover:bg-accent/90"><Plus className="h-4 w-4 ml-2" />פרויקט חדש</Button>
+            </DialogTrigger>
           </DialogTrigger>
           <DialogContent dir="rtl" className="border-2 border-accent">
             <DialogHeader><DialogTitle>הוסף פרויקט חדש</DialogTitle></DialogHeader>
