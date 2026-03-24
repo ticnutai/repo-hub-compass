@@ -19,8 +19,10 @@ export default function ProjectDetail() {
   const { data: changelogs } = useChangelogs(id);
   const { data: backups } = useBackups(id);
   const { data: accounts } = useAccounts();
+  const { data: profile } = useProfile();
   const createBackup = useCreateBackup();
   const [showPasswords, setShowPasswords] = useState<Record<string, boolean>>({});
+  const [syncOpen, setSyncOpen] = useState(false);
 
   const handleBackup = async () => {
     if (!id) return;
