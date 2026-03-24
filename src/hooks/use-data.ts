@@ -341,6 +341,55 @@ export function useAccountProjects(accountId?: string) {
   });
 }
 
+export function useProjectAccounts(projectId?: string) {
+  return useQuery({
+    queryKey: ["project_accounts", projectId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("account_projects")
+        .select("*, accounts(*)")
+        .eq("project_id", projectId!);
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!projectId,
+  });
+}
+
+export function useLinkAccountToProject() {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+  return useMutation({
+    mutationFn: async ({ account_id, project_id }: { account_id: string; project_id: string }) => {
+      const { data, error } = await supabase
+        .from("account_projects")
+        .insert({ account_id, project_id, user_id: user!.id })
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["project_accounts"] });
+      queryClient.invalidateQueries({ queryKey: ["account_projects"] });
+    },
+  });
+}
+
+export function useUnlinkAccountFromProject() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("account_projects").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["project_accounts"] });
+      queryClient.invalidateQueries({ queryKey: ["account_projects"] });
+    },
+  });
+}
+
 // ---- Project Links ----
 export function useProjectLinks(projectId?: string) {
   return useQuery({

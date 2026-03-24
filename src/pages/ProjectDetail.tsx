@@ -19,6 +19,7 @@ import { ProjectConnections } from "@/components/ProjectConnections";
 import { ProjectAISummary } from "@/components/ProjectAISummary";
 import { ProjectNotes } from "@/components/ProjectNotes";
 import { ProjectWebhooks } from "@/components/ProjectWebhooks";
+import { ProjectAccountsPanel } from "@/components/ProjectAccountsPanel";
 import { exportProjectAsZip } from "@/lib/export-utils";
 
 const statusLabels: Record<string, string> = { active: "פעיל", paused: "מושהה", completed: "הושלם" };
@@ -271,6 +272,8 @@ export default function ProjectDetail() {
       <ProjectWebhooks projectId={project.id} />
 
       <ProjectConnections projectId={project.id} />
+
+      <ProjectAccountsPanel projectId={project.id} />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card className="border-2 border-border">
