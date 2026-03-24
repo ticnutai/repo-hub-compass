@@ -162,7 +162,7 @@ export function GitHubImportDialog({ open, onOpenChange }: Props) {
               </Button>
             </div>
 
-            <ScrollArea className="h-[300px] border rounded-lg">
+            <div className="h-[300px] border rounded-lg overflow-y-auto">
               <div className="p-2 space-y-1">
                 {repos.map((repo) => (
                   <label key={repo.id} className="flex items-center gap-3 p-3 rounded-lg hover:bg-secondary cursor-pointer transition-colors">
@@ -181,7 +181,7 @@ export function GitHubImportDialog({ open, onOpenChange }: Props) {
                   </label>
                 ))}
               </div>
-            </ScrollArea>
+            </div>
 
             <div className="flex gap-2">
               <Button variant="outline" className="flex-1" onClick={() => { setStep("token"); setRepos([]); }}>חזור</Button>
