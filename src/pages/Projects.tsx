@@ -172,8 +172,12 @@ export default function Projects() {
         <div className={viewMode === "grid" ? "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4" : "space-y-3"}>
           {filtered.map((project) => (
             <div key={project.id} className="relative group">
+              {/* Select checkbox */}
+              <div className="absolute top-2 right-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
+                <Checkbox checked={selected.has(project.id)} onCheckedChange={() => toggleSelect(project.id)} />
+              </div>
               <Link to={`/projects/${project.id}`}>
-                <Card className="border-2 border-border hover:border-accent transition-all hover:shadow-md cursor-pointer">
+                <Card className={`border-2 ${selected.has(project.id) ? 'border-accent bg-accent/5' : 'border-border'} hover:border-accent transition-all hover:shadow-md cursor-pointer`}>
                   <CardContent className={`p-5 ${viewMode === "list" ? "flex items-center justify-between" : "space-y-3"}`}>
                     <div className={viewMode === "list" ? "flex items-center gap-4 flex-1" : ""}>
                       <div className="flex items-center gap-2 mb-1">
