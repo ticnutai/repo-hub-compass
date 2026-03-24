@@ -170,8 +170,11 @@ export default function Folders() {
     return (
       <div key={folder.id} style={{ marginRight: depth * 24 }}>
         <div
-          className="flex items-center justify-between p-3 rounded-lg hover:bg-secondary group cursor-pointer transition-colors"
+          className={`flex items-center justify-between p-3 rounded-lg hover:bg-secondary group cursor-pointer transition-colors ${dragOverFolderId === folder.id ? 'ring-2 ring-accent bg-accent/10' : ''}`}
           onClick={() => toggleFolder(folder.id)}
+          onDragOver={(e) => { handleDragOver(e); setDragOverFolderId(folder.id); }}
+          onDragLeave={() => setDragOverFolderId(null)}
+          onDrop={(e) => handleDropOnFolder(e, folder.id)}
         >
           <div className="flex items-center gap-2">
             {isExpanded ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronLeft className="h-4 w-4 text-muted-foreground" />}
