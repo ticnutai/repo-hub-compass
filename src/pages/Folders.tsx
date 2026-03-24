@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Folder, FolderPlus, Pencil, Trash2, ChevronDown, ChevronLeft, MoveRight, X, Check } from "lucide-react";
+import { Folder, FolderPlus, Pencil, Trash2, ChevronDown, ChevronLeft, MoveRight, X, Check, Download } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
