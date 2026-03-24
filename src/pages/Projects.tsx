@@ -35,6 +35,8 @@ export default function Projects() {
   const [open, setOpen] = useState(false);
   const [githubOpen, setGithubOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [exporting, setExporting] = useState(false);
 
   const [newName, setNewName] = useState("");
   const [newDesc, setNewDesc] = useState("");
