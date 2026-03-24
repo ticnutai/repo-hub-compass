@@ -68,6 +68,9 @@ export default function ProjectDetail() {
                 <span>קטגוריה: <strong className="text-foreground">{project.category}</strong></span>
                 <span>נוצר: <strong className="text-foreground">{new Date(project.created_at).toLocaleDateString("he-IL")}</strong></span>
                 <span>עודכן: <strong className="text-foreground">{new Date(project.updated_at).toLocaleDateString("he-IL")}</strong></span>
+                {(project as any).last_synced_at && (
+                  <span>סנכרון אחרון: <strong className="text-foreground">{new Date((project as any).last_synced_at).toLocaleDateString("he-IL")}</strong></span>
+                )}
               </div>
               {project.repo_url && (
                 <a href={project.repo_url} target="_blank" rel="noopener" className="inline-flex items-center gap-1 mt-3 text-sm text-accent hover:underline">
