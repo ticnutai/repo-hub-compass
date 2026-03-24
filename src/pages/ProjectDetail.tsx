@@ -256,6 +256,8 @@ export default function ProjectDetail() {
       {isGithub && <ProjectAnalysis projectId={project.id} isGithub={!!isGithub} />}
 
       <ProjectConnections projectId={project.id} />
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card className="border-2 border-border">
           <CardHeader><CardTitle className="text-lg">לוג שינויים</CardTitle></CardHeader>
           <CardContent className="space-y-3">
