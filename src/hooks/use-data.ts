@@ -498,3 +498,209 @@ export function useUnlinkServiceConnection() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["service_connection_projects"] }),
   });
 }
+
+// ---- Project Notes ----
+export function useProjectNotes(projectId?: string) {
+  return useQuery({
+    queryKey: ["project_notes", projectId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("project_notes" as any)
+        .select("*")
+        .eq("project_id", projectId!)
+        .order("updated_at", { ascending: false });
+      if (error) throw error;
+      return data as any[];
+    },
+    enabled: !!projectId,
+  });
+}
+
+export function useCreateNote() {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+  return useMutation({
+    mutationFn: async (note: { project_id: string; title: string; content: string }) => {
+      const { data, error } = await supabase
+        .from("project_notes" as any)
+        .insert({ ...note, user_id: user!.id } as any)
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["project_notes"] }),
+  });
+}
+
+export function useUpdateNote() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...updates }: { id: string; title?: string; content?: string }) => {
+      const { data, error } = await supabase
+        .from("project_notes" as any)
+        .update({ ...updates, updated_at: new Date().toISOString() } as any)
+        .eq("id", id)
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["project_notes"] }),
+  });
+}
+
+export function useDeleteNote() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("project_notes" as any).delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["project_notes"] }),
+  });
+}
+
+// ---- Uptime Monitors ----
+export function useUptimeMonitors() {
+  return useQuery({
+    queryKey: ["uptime_monitors"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("uptime_monitors" as any)
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data as any[];
+    },
+  });
+}
+
+export function useCreateMonitor() {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+  return useMutation({
+    mutationFn: async (monitor: { name: string; url: string; check_interval: number; project_id?: string }) => {
+      const { data, error } = await supabase
+        .from("uptime_monitors" as any)
+        .insert({ ...monitor, user_id: user!.id } as any)
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["uptime_monitors"] }),
+  });
+}
+
+export function useDeleteMonitor() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("uptime_monitors" as any).delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["uptime_monitors"] }),
+  });
+}
+
+export function useCheckMonitor() {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+  return useMutation({
+    mutationFn: async (monitorId: string) => {
+      // Get monitor details
+      const { data: monitor, error: fetchError } = await supabase
+        .from("uptime_monitors" as any)
+        .select("*")
+        .eq("id", monitorId)
+        .single();
+      if (fetchError || !monitor) throw new Error("Monitor not found");
+
+      const m = monitor as any;
+      const startTime = Date.now();
+      let status = "down";
+      let statusCode = 0;
+      let errorMessage = "";
+
+      try {
+        const res = await fetch(m.url, { method: "HEAD", mode: "no-cors" });
+        statusCode = res.status;
+        status = res.ok || res.type === "opaque" ? "up" : "down";
+      } catch (e: any) {
+        errorMessage = e.message;
+        status = "down";
+      }
+
+      const responseTime = Date.now() - startTime;
+
+      // Log the check
+      await supabase.from("uptime_logs" as any).insert({
+        monitor_id: monitorId,
+        user_id: user!.id,
+        status,
+        response_time: responseTime,
+        status_code: statusCode,
+        error_message: errorMessage || null,
+      } as any);
+
+      // Update monitor
+      await supabase
+        .from("uptime_monitors" as any)
+        .update({
+          last_status: status,
+          last_checked_at: new Date().toISOString(),
+          last_response_time: responseTime,
+        } as any)
+        .eq("id", monitorId);
+
+      return { status, responseTime };
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["uptime_monitors"] }),
+  });
+}
+
+// ---- Project Webhooks ----
+export function useProjectWebhooks(projectId?: string) {
+  return useQuery({
+    queryKey: ["project_webhooks", projectId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("project_webhooks" as any)
+        .select("*")
+        .eq("project_id", projectId!)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data as any[];
+    },
+    enabled: !!projectId,
+  });
+}
+
+export function useCreateWebhook() {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+  return useMutation({
+    mutationFn: async (webhook: { project_id: string; name: string; url: string; event_types: string[] }) => {
+      const { data, error } = await supabase
+        .from("project_webhooks" as any)
+        .insert({ ...webhook, user_id: user!.id } as any)
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["project_webhooks"] }),
+  });
+}
+
+export function useDeleteWebhook() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("project_webhooks" as any).delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["project_webhooks"] }),
+  });
+}
