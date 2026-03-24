@@ -266,6 +266,10 @@ export default function ProjectDetail() {
 
       <ProjectAISummary projectId={project.id} projectName={project.name} />
 
+      <ProjectNotes projectId={project.id} />
+
+      <ProjectWebhooks projectId={project.id} />
+
       <ProjectConnections projectId={project.id} />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
