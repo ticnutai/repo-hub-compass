@@ -16,6 +16,7 @@ const items = [
   { title: "דשבורד", url: "/", icon: LayoutDashboard },
   { title: "פרויקטים", url: "/projects", icon: FolderGit2 },
   { title: "חשבונות", url: "/accounts", icon: Users },
+  { title: "חיבורים", url: "/services", icon: Plug },
   { title: "גיבויים", url: "/backups", icon: HardDrive },
   { title: "הגדרות", url: "/settings", icon: Settings },
 ];

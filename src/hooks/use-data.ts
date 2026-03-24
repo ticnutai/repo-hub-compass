@@ -298,3 +298,66 @@ export function useProjectEnvVars(projectId?: string) {
     enabled: !!projectId,
   });
 }
+
+// ---- Service Connections ----
+export function useServiceConnections() {
+  return useQuery({
+    queryKey: ["service_connections"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("service_connections" as any)
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data as any[];
+    },
+  });
+}
+
+export function useCreateServiceConnection() {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+  return useMutation({
+    mutationFn: async (conn: {
+      service_name: string; service_category?: string; provider?: string;
+      connection_type?: string; credentials?: any; config?: any; notes?: string;
+    }) => {
+      const { data, error } = await supabase
+        .from("service_connections" as any)
+        .insert({ ...conn, user_id: user!.id } as any)
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["service_connections"] }),
+  });
+}
+
+export function useUpdateServiceConnection() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...updates }: { id: string; [key: string]: any }) => {
+      const { data, error } = await supabase
+        .from("service_connections" as any)
+        .update(updates as any)
+        .eq("id", id)
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["service_connections"] }),
+  });
+}
+
+export function useDeleteServiceConnection() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("service_connections" as any).delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["service_connections"] }),
+  });
+}
