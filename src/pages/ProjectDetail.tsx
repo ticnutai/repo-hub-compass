@@ -16,6 +16,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { GitHubSyncDialog } from "@/components/GitHubSyncDialog";
 import { ProjectAnalysis } from "@/components/ProjectAnalysis";
 import { ProjectConnections } from "@/components/ProjectConnections";
+import { ProjectAISummary } from "@/components/ProjectAISummary";
 import { exportProjectAsZip } from "@/lib/export-utils";
 
 const statusLabels: Record<string, string> = { active: "פעיל", paused: "מושהה", completed: "הושלם" };
