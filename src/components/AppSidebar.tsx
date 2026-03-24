@@ -1,4 +1,4 @@
-import { LayoutDashboard, FolderGit2, Users, HardDrive, Settings, Code2, Plug } from "lucide-react";
+import { LayoutDashboard, FolderGit2, Users, HardDrive, Settings, Code2, Plug, FolderOpen } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
 import {
@@ -17,6 +17,7 @@ const items = [
   { title: "פרויקטים", url: "/projects", icon: FolderGit2 },
   { title: "חשבונות", url: "/accounts", icon: Users },
   { title: "חיבורים", url: "/services", icon: Plug },
+  { title: "תיקיות", url: "/folders", icon: FolderOpen },
   { title: "גיבויים", url: "/backups", icon: HardDrive },
   { title: "הגדרות", url: "/settings", icon: Settings },
 ];

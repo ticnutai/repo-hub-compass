@@ -232,6 +232,99 @@ export function useCreateBackup() {
   });
 }
 
+// ---- Folders ----
+export function useFolders() {
+  return useQuery({
+    queryKey: ["folders"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("folders" as any)
+        .select("*")
+        .order("name", { ascending: true });
+      if (error) throw error;
+      return data as any[];
+    },
+  });
+}
+
+export function useCreateFolder() {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+  return useMutation({
+    mutationFn: async (folder: { name: string; color?: string; icon?: string; parent_id?: string }) => {
+      const { data, error } = await supabase
+        .from("folders" as any)
+        .insert({ ...folder, user_id: user!.id } as any)
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["folders"] }),
+  });
+}
+
+export function useUpdateFolder() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...updates }: { id: string; name?: string; color?: string; icon?: string; parent_id?: string | null }) => {
+      const { data, error } = await supabase
+        .from("folders" as any)
+        .update(updates as any)
+        .eq("id", id)
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["folders"] }),
+  });
+}
+
+export function useDeleteFolder() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("folders" as any).delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["folders"] });
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
+    },
+  });
+}
+
+export function useMoveProjectToFolder() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ projectId, folderId }: { projectId: string; folderId: string | null }) => {
+      const { error } = await supabase
+        .from("projects")
+        .update({ folder_id: folderId } as any)
+        .eq("id", projectId);
+      if (error) throw error;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["projects"] }),
+  });
+}
+
+export function useUpdateProjectBackupSettings() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, auto_backup_enabled, backup_interval }: { id: string; auto_backup_enabled: boolean; backup_interval: string }) => {
+      const { error } = await supabase
+        .from("projects")
+        .update({ auto_backup_enabled, backup_interval } as any)
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
+    },
+  });
+}
+
 // ---- Account-Projects link ----
 export function useAccountProjects(accountId?: string) {
   return useQuery({

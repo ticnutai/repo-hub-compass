@@ -12,6 +12,7 @@ import Accounts from "@/pages/Accounts";
 import Backups from "@/pages/Backups";
 import SettingsPage from "@/pages/SettingsPage";
 import Services from "@/pages/Services";
+import Folders from "@/pages/Folders";
 import Auth from "@/pages/Auth";
 import NotFound from "@/pages/NotFound";
 
@@ -46,6 +47,7 @@ const App = () => (
               <Route path="/projects/:id" element={<ProjectDetail />} />
               <Route path="/accounts" element={<Accounts />} />
               <Route path="/services" element={<Services />} />
+              <Route path="/folders" element={<Folders />} />
               <Route path="/backups" element={<Backups />} />
               <Route path="/settings" element={<SettingsPage />} />
             </Route>

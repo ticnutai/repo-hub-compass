@@ -97,6 +97,7 @@ export type Database = {
           backup_type: Database["public"]["Enums"]["backup_type"]
           created_at: string
           id: string
+          notes: string | null
           project_id: string
           size: string | null
           status: Database["public"]["Enums"]["backup_status"]
@@ -106,6 +107,7 @@ export type Database = {
           backup_type?: Database["public"]["Enums"]["backup_type"]
           created_at?: string
           id?: string
+          notes?: string | null
           project_id: string
           size?: string | null
           status?: Database["public"]["Enums"]["backup_status"]
@@ -115,6 +117,7 @@ export type Database = {
           backup_type?: Database["public"]["Enums"]["backup_type"]
           created_at?: string
           id?: string
+          notes?: string | null
           project_id?: string
           size?: string | null
           status?: Database["public"]["Enums"]["backup_status"]
@@ -161,6 +164,47 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      folders: {
+        Row: {
+          color: string | null
+          created_at: string
+          icon: string | null
+          id: string
+          name: string
+          parent_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          icon?: string | null
+          id?: string
+          name: string
+          parent_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          icon?: string | null
+          id?: string
+          name?: string
+          parent_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "folders_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "folders"
             referencedColumns: ["id"]
           },
         ]
@@ -332,11 +376,15 @@ export type Database = {
       }
       projects: {
         Row: {
+          auto_backup_enabled: boolean | null
+          backup_interval: string | null
           category: string | null
           created_at: string
           description: string | null
+          folder_id: string | null
           id: string
           language: string | null
+          last_backup_at: string | null
           last_synced_at: string | null
           local_path: string | null
           name: string
@@ -348,11 +396,15 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          auto_backup_enabled?: boolean | null
+          backup_interval?: string | null
           category?: string | null
           created_at?: string
           description?: string | null
+          folder_id?: string | null
           id?: string
           language?: string | null
+          last_backup_at?: string | null
           last_synced_at?: string | null
           local_path?: string | null
           name: string
@@ -364,11 +416,15 @@ export type Database = {
           user_id: string
         }
         Update: {
+          auto_backup_enabled?: boolean | null
+          backup_interval?: string | null
           category?: string | null
           created_at?: string
           description?: string | null
+          folder_id?: string | null
           id?: string
           language?: string | null
+          last_backup_at?: string | null
           last_synced_at?: string | null
           local_path?: string | null
           name?: string
@@ -379,7 +435,15 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "projects_folder_id_fkey"
+            columns: ["folder_id"]
+            isOneToOne: false
+            referencedRelation: "folders"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       service_connection_projects: {
         Row: {
