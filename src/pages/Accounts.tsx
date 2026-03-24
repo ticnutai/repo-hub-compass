@@ -156,6 +156,8 @@ export default function Accounts() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [form, setForm] = useState<AccountForm>({ ...emptyForm });
   const [importOpen, setImportOpen] = useState(false);
+  const [selectedPreset, setSelectedPreset] = useState<typeof servicePresets[number] | null>(null);
+  const [showAllPresets, setShowAllPresets] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const filtered = (accounts || []).filter(a =>
