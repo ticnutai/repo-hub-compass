@@ -14,6 +14,7 @@ import SettingsPage from "@/pages/SettingsPage";
 import Services from "@/pages/Services";
 import Folders from "@/pages/Folders";
 import UptimeMonitoring from "@/pages/UptimeMonitoring";
+import KanbanBoard from "@/pages/KanbanBoard";
 import Auth from "@/pages/Auth";
 import NotFound from "@/pages/NotFound";
 
