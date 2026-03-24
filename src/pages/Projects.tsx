@@ -29,6 +29,7 @@ export default function Projects() {
   const [platformFilter, setPlatformFilter] = useState("all");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [open, setOpen] = useState(false);
+  const [githubOpen, setGithubOpen] = useState(false);
 
   const [newName, setNewName] = useState("");
   const [newDesc, setNewDesc] = useState("");
