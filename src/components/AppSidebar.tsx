@@ -1,4 +1,4 @@
-import { LayoutDashboard, FolderGit2, Users, HardDrive, Settings, Code2, Plug } from "lucide-react";
+import { LayoutDashboard, FolderGit2, Users, HardDrive, Settings, Code2, Plug, FolderOpen } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
 import {
