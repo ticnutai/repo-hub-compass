@@ -15,6 +15,7 @@ import Services from "@/pages/Services";
 import Folders from "@/pages/Folders";
 import UptimeMonitoring from "@/pages/UptimeMonitoring";
 import KanbanBoard from "@/pages/KanbanBoard";
+import TimeTracking from "@/pages/TimeTracking";
 import Auth from "@/pages/Auth";
 import NotFound from "@/pages/NotFound";
 
@@ -52,6 +53,7 @@ const App = () => (
               <Route path="/folders" element={<Folders />} />
               <Route path="/uptime" element={<UptimeMonitoring />} />
               <Route path="/kanban" element={<KanbanBoard />} />
+              <Route path="/time" element={<TimeTracking />} />
               <Route path="/backups" element={<Backups />} />
               <Route path="/settings" element={<SettingsPage />} />
             </Route>
