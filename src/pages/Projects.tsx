@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Search, Plus, LayoutGrid, List, Github, Monitor, FolderGit2 } from "lucide-react";
+import { Search, Plus, LayoutGrid, List, Github, Monitor, FolderGit2, Download } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,7 @@ import { useProjects, useCreateProject } from "@/hooks/use-data";
 import { Link } from "react-router-dom";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
+import { GitHubImportDialog } from "@/components/GitHubImportDialog";
 
 const statusLabels: Record<string, string> = { active: "פעיל", paused: "מושהה", completed: "הושלם" };
 const statusColors: Record<string, string> = {
@@ -28,6 +29,7 @@ export default function Projects() {
   const [platformFilter, setPlatformFilter] = useState("all");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [open, setOpen] = useState(false);
+  const [githubOpen, setGithubOpen] = useState(false);
 
   const [newName, setNewName] = useState("");
   const [newDesc, setNewDesc] = useState("");
@@ -57,10 +59,14 @@ export default function Projects() {
     <div className="space-y-6" dir="rtl">
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold text-foreground">פרויקטים</h2>
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild>
-            <Button className="bg-accent text-accent-foreground hover:bg-accent/90"><Plus className="h-4 w-4 ml-2" />פרויקט חדש</Button>
-          </DialogTrigger>
+        <div className="flex gap-2">
+          <Button variant="outline" className="border-accent text-accent hover:bg-accent/10" onClick={() => setGithubOpen(true)}>
+            <Github className="h-4 w-4 ml-2" /> ייבוא מ-GitHub
+          </Button>
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+              <Button className="bg-accent text-accent-foreground hover:bg-accent/90"><Plus className="h-4 w-4 ml-2" />פרויקט חדש</Button>
+            </DialogTrigger>
           <DialogContent dir="rtl" className="border-2 border-accent">
             <DialogHeader><DialogTitle>הוסף פרויקט חדש</DialogTitle></DialogHeader>
             <div className="space-y-4 mt-4">
@@ -81,7 +87,9 @@ export default function Projects() {
             </div>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
+      <GitHubImportDialog open={githubOpen} onOpenChange={setGithubOpen} />
 
       <div className="flex flex-wrap gap-3 items-center">
         <div className="relative flex-1 min-w-[200px] max-w-sm">
