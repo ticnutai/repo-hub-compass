@@ -12,6 +12,7 @@ import Accounts from "@/pages/Accounts";
 import Backups from "@/pages/Backups";
 import SettingsPage from "@/pages/SettingsPage";
 import Services from "@/pages/Services";
+import Folders from "@/pages/Folders";
 import Auth from "@/pages/Auth";
 import NotFound from "@/pages/NotFound";
 
