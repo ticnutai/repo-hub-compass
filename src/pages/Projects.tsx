@@ -73,13 +73,38 @@ export default function Projects() {
     }
   };
 
+  const toggleSelect = (id: string) => {
+    setSelected(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  };
+
+  const handleExportSelected = async () => {
+    if (selected.size === 0) return;
+    setExporting(true);
+    try {
+      if (selected.size === 1) {
+        const p = (projects || []).find(p => p.id === Array.from(selected)[0]);
+        await exportProjectAsZip(Array.from(selected)[0], p?.name || "project");
+      } else {
+        await exportMultipleProjects(Array.from(selected), "projects_export");
+      }
+      toast.success(`${selected.size} פרויקטים יוצאו בהצלחה!`);
+      setSelected(new Set());
+    } catch (e: any) { toast.error(e.message); }
+    setExporting(false);
+  };
+
   const deleteTargetName = deleteId ? (projects || []).find(p => p.id === deleteId)?.name : "";
 
   return (
     <div className="space-y-6" dir="rtl">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-2">
         <h2 className="text-2xl font-bold text-foreground">פרויקטים</h2>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
+          {selected.size > 0 && (
+            <Button variant="outline" className="border-accent text-accent hover:bg-accent/10" onClick={handleExportSelected} disabled={exporting}>
+              <Archive className="h-4 w-4 ml-2" /> {exporting ? "מייצא..." : `ייצוא ${selected.size} נבחרים (ZIP)`}
+            </Button>
+          )}
           <Button variant="outline" className="border-accent text-accent hover:bg-accent/10" onClick={() => setGithubOpen(true)}>
             <Github className="h-4 w-4 ml-2" /> ייבוא מ-GitHub
           </Button>
