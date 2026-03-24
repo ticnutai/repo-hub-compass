@@ -170,6 +170,7 @@ export type Database = {
           created_at: string
           display_name: string | null
           email: string | null
+          github_token: string | null
           id: string
           updated_at: string
           user_id: string
@@ -178,6 +179,7 @@ export type Database = {
           created_at?: string
           display_name?: string | null
           email?: string | null
+          github_token?: string | null
           id?: string
           updated_at?: string
           user_id: string
@@ -186,6 +188,7 @@ export type Database = {
           created_at?: string
           display_name?: string | null
           email?: string | null
+          github_token?: string | null
           id?: string
           updated_at?: string
           user_id?: string
@@ -199,6 +202,7 @@ export type Database = {
           description: string | null
           id: string
           language: string | null
+          last_synced_at: string | null
           local_path: string | null
           name: string
           platform: Database["public"]["Enums"]["project_platform"]
@@ -214,6 +218,7 @@ export type Database = {
           description?: string | null
           id?: string
           language?: string | null
+          last_synced_at?: string | null
           local_path?: string | null
           name: string
           platform?: Database["public"]["Enums"]["project_platform"]
@@ -229,6 +234,7 @@ export type Database = {
           description?: string | null
           id?: string
           language?: string | null
+          last_synced_at?: string | null
           local_path?: string | null
           name?: string
           platform?: Database["public"]["Enums"]["project_platform"]
