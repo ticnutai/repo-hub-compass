@@ -1,12 +1,13 @@
 import { useParams, Link } from "react-router-dom";
-import { ArrowRight, Github, Monitor, Plus, Bug, RefreshCw, Rocket, HardDrive, Eye, EyeOff, ExternalLink } from "lucide-react";
+import { ArrowRight, Github, Monitor, Plus, Bug, RefreshCw, Rocket, HardDrive, Eye, EyeOff, ExternalLink, RotateCw } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useProject, useChangelogs, useBackups, useAccounts, useCreateBackup } from "@/hooks/use-data";
+import { useProject, useChangelogs, useBackups, useAccounts, useCreateBackup, useProfile } from "@/hooks/use-data";
 import { useState } from "react";
 import { toast } from "sonner";
+import { GitHubSyncDialog } from "@/components/GitHubSyncDialog";
 
 const statusLabels: Record<string, string> = { active: "פעיל", paused: "מושהה", completed: "הושלם" };
 const changeTypeLabels: Record<string, string> = { feature: "פיצ'ר חדש", fix: "תיקון", update: "עדכון", deploy: "דיפלוי" };
