@@ -7,7 +7,6 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useCreateProject, useProfile } from "@/hooks/use-data";
-import { useCreateProject, useProfile } from "@/hooks/use-data";
 import { toast } from "sonner";
 
 interface GitHubRepo {
