@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { Search, Plus, LayoutGrid, List, Github, Monitor, FolderGit2, Trash2 } from "lucide-react";
+import { Search, Plus, LayoutGrid, List, Github, Monitor, FolderGit2, Trash2, Download, Archive, CheckSquare } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -14,6 +15,7 @@ import { Link } from "react-router-dom";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { GitHubImportDialog } from "@/components/GitHubImportDialog";
+import { exportProjectAsZip, exportMultipleProjects } from "@/lib/export-utils";
 
 const statusLabels: Record<string, string> = { active: "פעיל", paused: "מושהה", completed: "הושלם" };
 const statusColors: Record<string, string> = {
@@ -33,6 +35,8 @@ export default function Projects() {
   const [open, setOpen] = useState(false);
   const [githubOpen, setGithubOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [exporting, setExporting] = useState(false);
 
   const [newName, setNewName] = useState("");
   const [newDesc, setNewDesc] = useState("");
@@ -69,13 +73,38 @@ export default function Projects() {
     }
   };
 
+  const toggleSelect = (id: string) => {
+    setSelected(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  };
+
+  const handleExportSelected = async () => {
+    if (selected.size === 0) return;
+    setExporting(true);
+    try {
+      if (selected.size === 1) {
+        const p = (projects || []).find(p => p.id === Array.from(selected)[0]);
+        await exportProjectAsZip(Array.from(selected)[0], p?.name || "project");
+      } else {
+        await exportMultipleProjects(Array.from(selected), "projects_export");
+      }
+      toast.success(`${selected.size} פרויקטים יוצאו בהצלחה!`);
+      setSelected(new Set());
+    } catch (e: any) { toast.error(e.message); }
+    setExporting(false);
+  };
+
   const deleteTargetName = deleteId ? (projects || []).find(p => p.id === deleteId)?.name : "";
 
   return (
     <div className="space-y-6" dir="rtl">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-2">
         <h2 className="text-2xl font-bold text-foreground">פרויקטים</h2>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
+          {selected.size > 0 && (
+            <Button variant="outline" className="border-accent text-accent hover:bg-accent/10" onClick={handleExportSelected} disabled={exporting}>
+              <Archive className="h-4 w-4 ml-2" /> {exporting ? "מייצא..." : `ייצוא ${selected.size} נבחרים (ZIP)`}
+            </Button>
+          )}
           <Button variant="outline" className="border-accent text-accent hover:bg-accent/10" onClick={() => setGithubOpen(true)}>
             <Github className="h-4 w-4 ml-2" /> ייבוא מ-GitHub
           </Button>
@@ -143,8 +172,12 @@ export default function Projects() {
         <div className={viewMode === "grid" ? "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4" : "space-y-3"}>
           {filtered.map((project) => (
             <div key={project.id} className="relative group">
+              {/* Select checkbox */}
+              <div className="absolute top-2 right-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
+                <Checkbox checked={selected.has(project.id)} onCheckedChange={() => toggleSelect(project.id)} />
+              </div>
               <Link to={`/projects/${project.id}`}>
-                <Card className="border-2 border-border hover:border-accent transition-all hover:shadow-md cursor-pointer">
+                <Card className={`border-2 ${selected.has(project.id) ? 'border-accent bg-accent/5' : 'border-border'} hover:border-accent transition-all hover:shadow-md cursor-pointer`}>
                   <CardContent className={`p-5 ${viewMode === "list" ? "flex items-center justify-between" : "space-y-3"}`}>
                     <div className={viewMode === "list" ? "flex items-center gap-4 flex-1" : ""}>
                       <div className="flex items-center gap-2 mb-1">

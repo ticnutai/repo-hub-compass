@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Folder, FolderPlus, Pencil, Trash2, ChevronDown, ChevronLeft, MoveRight, X, Check } from "lucide-react";
+import { Folder, FolderPlus, Pencil, Trash2, ChevronDown, ChevronLeft, MoveRight, X, Check, Download } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,6 +12,7 @@ import { useFolders, useCreateFolder, useUpdateFolder, useDeleteFolder, useProje
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
+import { exportFolder, exportMultipleProjects } from "@/lib/export-utils";
 
 const FOLDER_COLORS = [
   { value: "#D4AF37", label: "זהב" },
@@ -37,6 +38,16 @@ export default function Folders() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const [moveProjectId, setMoveProjectId] = useState<string | null>(null);
+  const [exportingId, setExportingId] = useState<string | null>(null);
+
+  const handleExportFolder = async (folder: any) => {
+    setExportingId(folder.id);
+    try {
+      await exportFolder(folder.id, folder.name, projects || [], folders || []);
+      toast.success(`תיקייה "${folder.name}" יוצאה בהצלחה!`);
+    } catch (e: any) { toast.error(e.message); }
+    setExportingId(null);
+  };
 
   // Create form
   const [newName, setNewName] = useState("");
@@ -150,6 +161,9 @@ export default function Folders() {
           </div>
           {!isEditing && (
             <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
+              <Button variant="ghost" size="icon" className="h-7 w-7 text-accent" onClick={() => handleExportFolder(folder)} disabled={exportingId === folder.id}>
+                <Download className="h-3 w-3" />
+              </Button>
               <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => startEdit(folder)}><Pencil className="h-3 w-3" /></Button>
               <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => setDeleteId(folder.id)}><Trash2 className="h-3 w-3" /></Button>
             </div>
