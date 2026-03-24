@@ -49,6 +49,7 @@ const App = () => (
               <Route path="/accounts" element={<Accounts />} />
               <Route path="/services" element={<Services />} />
               <Route path="/folders" element={<Folders />} />
+              <Route path="/uptime" element={<UptimeMonitoring />} />
               <Route path="/backups" element={<Backups />} />
               <Route path="/settings" element={<SettingsPage />} />
             </Route>
