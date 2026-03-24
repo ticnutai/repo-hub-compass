@@ -20,10 +20,10 @@ function formatDuration(seconds: number) {
 
 function LiveTimer({ startTime }: { startTime: string }) {
   const [, setTick] = useState(0);
-  useState(() => {
+  useEffect(() => {
     const interval = setInterval(() => setTick((t) => t + 1), 1000);
     return () => clearInterval(interval);
-  });
+  }, []);
   const elapsed = Math.floor((Date.now() - new Date(startTime).getTime()) / 1000);
   return <span className="font-mono text-2xl font-bold text-green-500">{formatDuration(Math.max(0, elapsed))}</span>;
 }
