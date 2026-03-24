@@ -163,6 +163,16 @@ export default function ProjectDetail() {
           )}
         </CardContent>
       </Card>
+
+      {project.platform === "github" && project.repo_url && (
+        <GitHubSyncDialog
+          open={syncOpen}
+          onOpenChange={setSyncOpen}
+          projectId={project.id}
+          projectName={project.name}
+          hasToken={!!profile?.github_token}
+        />
+      )}
     </div>
   );
 }
