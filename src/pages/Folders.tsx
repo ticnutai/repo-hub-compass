@@ -38,6 +38,16 @@ export default function Folders() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const [moveProjectId, setMoveProjectId] = useState<string | null>(null);
+  const [exportingId, setExportingId] = useState<string | null>(null);
+
+  const handleExportFolder = async (folder: any) => {
+    setExportingId(folder.id);
+    try {
+      await exportFolder(folder.id, folder.name, projects || [], folders || []);
+      toast.success(`תיקייה "${folder.name}" יוצאה בהצלחה!`);
+    } catch (e: any) { toast.error(e.message); }
+    setExportingId(null);
+  };
 
   // Create form
   const [newName, setNewName] = useState("");
