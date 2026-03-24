@@ -201,6 +201,135 @@ export type Database = {
         }
         Relationships: []
       }
+      project_env_vars: {
+        Row: {
+          created_at: string
+          id: string
+          is_secret: boolean | null
+          project_id: string
+          source_file: string | null
+          user_id: string
+          var_name: string
+          var_value: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_secret?: boolean | null
+          project_id: string
+          source_file?: string | null
+          user_id: string
+          var_name: string
+          var_value?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_secret?: boolean | null
+          project_id?: string
+          source_file?: string | null
+          user_id?: string
+          var_name?: string
+          var_value?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_env_vars_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      project_links: {
+        Row: {
+          created_at: string
+          icon: string | null
+          id: string
+          label: string
+          link_type: string
+          project_id: string
+          url: string | null
+          user_id: string
+          value: string | null
+        }
+        Insert: {
+          created_at?: string
+          icon?: string | null
+          id?: string
+          label: string
+          link_type?: string
+          project_id: string
+          url?: string | null
+          user_id: string
+          value?: string | null
+        }
+        Update: {
+          created_at?: string
+          icon?: string | null
+          id?: string
+          label?: string
+          link_type?: string
+          project_id?: string
+          url?: string | null
+          user_id?: string
+          value?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_links_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      project_services: {
+        Row: {
+          config_found: boolean | null
+          created_at: string
+          details: Json | null
+          id: string
+          project_id: string
+          service_name: string
+          service_type: string
+          user_id: string
+          version: string | null
+        }
+        Insert: {
+          config_found?: boolean | null
+          created_at?: string
+          details?: Json | null
+          id?: string
+          project_id: string
+          service_name: string
+          service_type?: string
+          user_id: string
+          version?: string | null
+        }
+        Update: {
+          config_found?: boolean | null
+          created_at?: string
+          details?: Json | null
+          id?: string
+          project_id?: string
+          service_name?: string
+          service_type?: string
+          user_id?: string
+          version?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_services_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       projects: {
         Row: {
           category: string | null
