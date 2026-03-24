@@ -88,7 +88,9 @@ export default function Projects() {
             </div>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
+      <GitHubImportDialog open={githubOpen} onOpenChange={setGithubOpen} />
 
       <div className="flex flex-wrap gap-3 items-center">
         <div className="relative flex-1 min-w-[200px] max-w-sm">
