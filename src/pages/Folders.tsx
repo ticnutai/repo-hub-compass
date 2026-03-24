@@ -211,15 +211,18 @@ export default function Folders() {
         {isExpanded && (
           <div className="mr-6 border-r-2 border-muted pr-2 space-y-1 mt-1">
             {folderProjects.map((p: any) => (
-              <Link key={p.id} to={`/projects/${p.id}`} className="flex items-center justify-between p-2 rounded hover:bg-secondary text-sm group/project">
-                <span>{p.name}</span>
+              <div key={p.id} draggable onDragStart={(e) => { e.stopPropagation(); handleDragStart(e, p.id); }} className="flex items-center justify-between p-2 rounded hover:bg-secondary text-sm group/project cursor-grab active:cursor-grabbing">
+                <div className="flex items-center gap-2">
+                  <GripVertical className="h-3 w-3 text-muted-foreground opacity-0 group-hover/project:opacity-100" />
+                  <Link to={`/projects/${p.id}`} onClick={(e) => e.stopPropagation()}><span>{p.name}</span></Link>
+                </div>
                 <div className="flex items-center gap-1">
                   <Badge variant="outline" className="text-xs">{p.language || "—"}</Badge>
                   <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover/project:opacity-100" onClick={(e) => { e.preventDefault(); setMoveProjectId(p.id); }}>
                     <MoveRight className="h-3 w-3" />
                   </Button>
                 </div>
-              </Link>
+              </div>
             ))}
             {subfolders.map((sf: any) => renderFolder(sf, depth + 1))}
             {folderProjects.length === 0 && subfolders.length === 0 && (
