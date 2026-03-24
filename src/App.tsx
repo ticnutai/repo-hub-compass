@@ -51,6 +51,7 @@ const App = () => (
               <Route path="/services" element={<Services />} />
               <Route path="/folders" element={<Folders />} />
               <Route path="/uptime" element={<UptimeMonitoring />} />
+              <Route path="/kanban" element={<KanbanBoard />} />
               <Route path="/backups" element={<Backups />} />
               <Route path="/settings" element={<SettingsPage />} />
             </Route>
