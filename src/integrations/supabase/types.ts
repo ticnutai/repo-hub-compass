@@ -381,6 +381,45 @@ export type Database = {
         }
         Relationships: []
       }
+      service_connection_projects: {
+        Row: {
+          created_at: string
+          id: string
+          project_id: string
+          service_connection_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          project_id: string
+          service_connection_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          project_id?: string
+          service_connection_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_connection_projects_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_connection_projects_service_connection_id_fkey"
+            columns: ["service_connection_id"]
+            isOneToOne: false
+            referencedRelation: "service_connections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       service_connections: {
         Row: {
           config: Json
