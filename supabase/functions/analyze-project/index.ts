@@ -192,7 +192,7 @@ Deno.serve(async (req) => {
     const repoInfo = await fetchGH(apiBase, token);
     const links: Array<{ link_type: string; label: string; url?: string; value?: string; icon?: string }> = [];
     const services: Array<{ service_name: string; service_type: string; version?: string; config_found?: boolean; details?: Record<string, unknown> }> = [];
-    const envVars: Array<{ var_name: string; source_file: string; is_secret: boolean }> = [];
+    const envVars: Array<{ var_name: string; var_value?: string | null; source_file: string; is_secret: boolean }> = [];
 
     if (repoInfo) {
       // Extract links from repo info
