@@ -418,56 +418,126 @@ export default function Accounts() {
       )}
 
       {/* Create / Edit Dialog */}
-      <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) setEditId(null); }}>
-        <DialogContent dir="rtl" className="border-2 border-accent">
+      <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setEditId(null); setSelectedPreset(null); setShowAllPresets(false); } }}>
+        <DialogContent dir="rtl" className="border-2 border-accent max-w-xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editId ? "עריכת חשבון" : "הוסף חשבון חדש"}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 mt-4">
+          <div className="space-y-4 mt-2">
+            {/* Service presets - only show when creating new */}
+            {!editId && (
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">בחר שירות מוכן או הזן ידנית</Label>
+                <div className="grid grid-cols-4 sm:grid-cols-5 gap-2">
+                  {(showAllPresets ? servicePresets : servicePresets.slice(0, 10)).map((preset) => (
+                    <button
+                      key={preset.name}
+                      className={`flex flex-col items-center gap-1 p-2 rounded-lg border-2 transition-all text-center hover:border-accent hover:bg-accent/5 ${
+                        selectedPreset?.name === preset.name ? "border-accent bg-accent/10" : "border-border"
+                      }`}
+                      onClick={() => {
+                        setSelectedPreset(preset);
+                        setField("service_name", preset.name);
+                        setField("service_type", preset.type);
+                      }}
+                    >
+                      <span className="text-xl leading-none">{preset.icon}</span>
+                      <span className="text-xs font-medium truncate w-full">{preset.name}</span>
+                    </button>
+                  ))}
+                  {/* Manual option */}
+                  <button
+                    className={`flex flex-col items-center gap-1 p-2 rounded-lg border-2 transition-all text-center hover:border-accent hover:bg-accent/5 ${
+                      selectedPreset === null && form.service_name ? "border-accent bg-accent/10" : "border-dashed border-border"
+                    }`}
+                    onClick={() => {
+                      setSelectedPreset(null);
+                      setForm({ ...emptyForm });
+                    }}
+                  >
+                    <span className="text-xl leading-none">✏️</span>
+                    <span className="text-xs font-medium">ידני</span>
+                  </button>
+                </div>
+                {!showAllPresets && servicePresets.length > 10 && (
+                  <Button variant="ghost" size="sm" className="w-full text-xs text-muted-foreground" onClick={() => setShowAllPresets(true)}>
+                    <ChevronDown className="h-3 w-3 ml-1" /> הצג עוד {servicePresets.length - 10} שירותים
+                  </Button>
+                )}
+                {showAllPresets && (
+                  <Button variant="ghost" size="sm" className="w-full text-xs text-muted-foreground" onClick={() => setShowAllPresets(false)}>
+                    <ChevronUp className="h-3 w-3 ml-1" /> הצג פחות
+                  </Button>
+                )}
+              </div>
+            )}
+
+            {/* Preset hint + link */}
+            {selectedPreset && (
+              <div className="flex items-center gap-2 p-3 bg-accent/10 border border-accent/30 rounded-lg">
+                <span className="text-lg">{selectedPreset.icon}</span>
+                <div className="flex-1">
+                  <p className="text-sm font-medium">{selectedPreset.name}</p>
+                  <p className="text-xs text-muted-foreground">{selectedPreset.hint}</p>
+                </div>
+                <a href={selectedPreset.url} target="_blank" rel="noopener noreferrer">
+                  <Button variant="outline" size="sm" className="border-accent text-accent hover:bg-accent/10 shrink-0">
+                    <ExternalLink className="h-3.5 w-3.5 ml-1" /> פתח שירות
+                  </Button>
+                </a>
+              </div>
+            )}
+
+            {/* Dynamic form fields */}
             <div className="grid grid-cols-2 gap-4">
-              <div><Label>שם השירות</Label><Input className="mt-1" value={form.service_name} onChange={e => setField("service_name", e.target.value)} placeholder="GitHub, Vercel..." /></div>
-              <div><Label>סוג</Label><Input className="mt-1" value={form.service_type} onChange={e => setField("service_type", e.target.value)} placeholder="קוד, אחסון..." /></div>
+              <div>
+                <Label>שם השירות</Label>
+                <Input className="mt-1" value={form.service_name} onChange={e => setField("service_name", e.target.value)} placeholder="GitHub, Vercel..." />
+              </div>
+              <div>
+                <Label>סוג</Label>
+                <Input className="mt-1" value={form.service_type} onChange={e => setField("service_type", e.target.value)} placeholder="קוד, אחסון..." />
+              </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div><Label>שם משתמש</Label><Input className="mt-1" value={form.username} onChange={e => setField("username", e.target.value)} /></div>
+
+            {/* Show fields based on preset or all fields */}
+            {(!selectedPreset || selectedPreset.fields.includes("username") || editId) && (
+              <div className={`grid ${(!selectedPreset || selectedPreset.fields.includes("email") || editId) ? "grid-cols-2" : "grid-cols-1"} gap-4`}>
+                <div><Label>שם משתמש</Label><Input className="mt-1" value={form.username} onChange={e => setField("username", e.target.value)} /></div>
+                {(!selectedPreset || selectedPreset.fields.includes("email") || editId) && (
+                  <div><Label>אימייל</Label><Input className="mt-1" type="email" value={form.email} onChange={e => setField("email", e.target.value)} /></div>
+                )}
+              </div>
+            )}
+
+            {(!selectedPreset || selectedPreset.fields.includes("email")) && !(!selectedPreset || selectedPreset.fields.includes("username") || editId) && (
               <div><Label>אימייל</Label><Input className="mt-1" type="email" value={form.email} onChange={e => setField("email", e.target.value)} /></div>
-            </div>
-            <div className="relative">
-              <Label>סיסמה / טוקן</Label>
-              <div className="relative mt-1">
-                <Input
-                  type={showPasswords["form-pw"] ? "text" : "password"}
-                  value={form.password}
-                  onChange={e => setField("password", e.target.value)}
-                />
-                <Button
-                  variant="ghost" size="icon"
-                  className="absolute left-1 top-1/2 -translate-y-1/2 h-7 w-7"
-                  onClick={() => toggleShow("form-pw")}
-                  type="button"
-                >
-                  {showPasswords["form-pw"] ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
-                </Button>
+            )}
+
+            {(!selectedPreset || selectedPreset.fields.includes("password") || editId) && (
+              <div className="relative">
+                <Label>סיסמה / טוקן</Label>
+                <div className="relative mt-1">
+                  <Input type={showPasswords["form-pw"] ? "text" : "password"} value={form.password} onChange={e => setField("password", e.target.value)} />
+                  <Button variant="ghost" size="icon" className="absolute left-1 top-1/2 -translate-y-1/2 h-7 w-7" onClick={() => toggleShow("form-pw")} type="button">
+                    {showPasswords["form-pw"] ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                  </Button>
+                </div>
               </div>
-            </div>
-            <div className="relative">
-              <Label>API Key (אופציונלי)</Label>
-              <div className="relative mt-1">
-                <Input
-                  type={showPasswords["form-api"] ? "text" : "password"}
-                  value={form.api_key}
-                  onChange={e => setField("api_key", e.target.value)}
-                />
-                <Button
-                  variant="ghost" size="icon"
-                  className="absolute left-1 top-1/2 -translate-y-1/2 h-7 w-7"
-                  onClick={() => toggleShow("form-api")}
-                  type="button"
-                >
-                  {showPasswords["form-api"] ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
-                </Button>
+            )}
+
+            {(!selectedPreset || selectedPreset.fields.includes("api_key") || editId) && (
+              <div className="relative">
+                <Label>API Key</Label>
+                <div className="relative mt-1">
+                  <Input type={showPasswords["form-api"] ? "text" : "password"} value={form.api_key} onChange={e => setField("api_key", e.target.value)} />
+                  <Button variant="ghost" size="icon" className="absolute left-1 top-1/2 -translate-y-1/2 h-7 w-7" onClick={() => toggleShow("form-api")} type="button">
+                    {showPasswords["form-api"] ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                  </Button>
+                </div>
               </div>
-            </div>
+            )}
+
             <div><Label>הערות</Label><Textarea className="mt-1" value={form.notes} onChange={e => setField("notes", e.target.value)} placeholder="הערות נוספות..." /></div>
             <Button className="w-full bg-accent text-accent-foreground hover:bg-accent/90" onClick={handleSave} disabled={createAccount.isPending || updateAccount.isPending}>
               {(createAccount.isPending || updateAccount.isPending) ? "שומר..." : editId ? "שמור שינויים" : "הוסף חשבון"}
