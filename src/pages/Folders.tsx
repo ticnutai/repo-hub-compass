@@ -283,13 +283,20 @@ export default function Folders() {
 
       {/* Unassigned projects */}
       {unassignedProjects.length > 0 && (
-        <Card className="border-2 border-border">
+        <Card className={`border-2 ${dragOverUnassigned ? 'border-accent bg-accent/5' : 'border-border'}`}
+          onDragOver={(e) => { handleDragOver(e); setDragOverUnassigned(true); }}
+          onDragLeave={() => setDragOverUnassigned(false)}
+          onDrop={handleDropOnUnassigned}
+        >
           <CardHeader><CardTitle className="text-lg">פרויקטים ללא תיקייה</CardTitle></CardHeader>
           <CardContent>
             <div className="space-y-1">
               {unassignedProjects.map((p: any) => (
-                <div key={p.id} className="flex items-center justify-between p-2 rounded hover:bg-secondary group">
-                  <Link to={`/projects/${p.id}`} className="flex-1"><span className="text-sm">{p.name}</span></Link>
+                <div key={p.id} draggable onDragStart={(e) => handleDragStart(e, p.id)} className="flex items-center justify-between p-2 rounded hover:bg-secondary group cursor-grab active:cursor-grabbing">
+                  <div className="flex items-center gap-2">
+                    <GripVertical className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100" />
+                    <Link to={`/projects/${p.id}`} className="flex-1"><span className="text-sm">{p.name}</span></Link>
+                  </div>
                   <Button variant="ghost" size="sm" className="opacity-0 group-hover:opacity-100 text-xs" onClick={() => setMoveProjectId(p.id)}>
                     <MoveRight className="h-3 w-3 ml-1" /> העבר לתיקייה
                   </Button>
