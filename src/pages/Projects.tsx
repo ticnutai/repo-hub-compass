@@ -12,6 +12,7 @@ import { useProjects, useCreateProject } from "@/hooks/use-data";
 import { Link } from "react-router-dom";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
+import { GitHubImportDialog } from "@/components/GitHubImportDialog";
 
 const statusLabels: Record<string, string> = { active: "פעיל", paused: "מושהה", completed: "הושלם" };
 const statusColors: Record<string, string> = {
