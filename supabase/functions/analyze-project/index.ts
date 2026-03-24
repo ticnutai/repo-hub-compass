@@ -254,9 +254,9 @@ Deno.serve(async (req) => {
       }
     }
 
-    // 4. Look for env files
-    const envFiles = [".env.example", ".env.local.example", ".env.sample", ".env.template"];
-    for (const envFile of envFiles) {
+    // 4. Look for env files (including .env itself)
+    const envFileNames = [".env", ".env.example", ".env.local.example", ".env.sample", ".env.template", ".env.local", ".env.development", ".env.production"];
+    for (const envFile of envFileNames) {
       const file = rootFiles.find((f) => f.name === envFile);
       if (file?.download_url) {
         const content = await fetchFileContent(file.download_url, token);
@@ -265,14 +265,74 @@ Deno.serve(async (req) => {
           for (const line of lines) {
             const match = line.match(/^([A-Z_][A-Z0-9_]*)(\s*=\s*(.*))?/);
             if (match) {
+              const varName = match[1];
+              const varValue = match[3]?.trim().replace(/^["']|["']$/g, "") || "";
+              // Skip if already found with a value
+              const existing = envVars.find(e => e.var_name === varName);
+              if (existing) {
+                if (!existing.var_value && varValue) {
+                  existing.var_value = varValue;
+                  existing.source_file = envFile;
+                }
+                continue;
+              }
               envVars.push({
-                var_name: match[1],
+                var_name: varName,
+                var_value: varValue || null,
                 source_file: envFile,
-                is_secret: !match[1].startsWith("NEXT_PUBLIC") && !match[1].startsWith("VITE_"),
+                is_secret: !varName.startsWith("NEXT_PUBLIC") && !varName.startsWith("VITE_"),
               });
             }
           }
         }
+      }
+    }
+
+    // 4b. Scan source code for Supabase and other service configs
+    const codeScanFiles = [
+      "src/integrations/supabase/client.ts",
+      "src/lib/supabase.ts",
+      "src/supabaseClient.ts",
+      "src/utils/supabase.ts",
+      "lib/supabase.ts",
+      "utils/supabase.ts",
+      "src/firebase.ts",
+      "src/lib/firebase.ts",
+    ];
+    for (const filePath of codeScanFiles) {
+      try {
+        const content = await fetchFileContent(`https://raw.githubusercontent.com/${owner}/${repo}/HEAD/${filePath}`, token);
+        if (content) {
+          // Look for URL patterns
+          const urlMatches = content.matchAll(/(?:SUPABASE_URL|supabaseUrl|NEXT_PUBLIC_SUPABASE_URL|VITE_SUPABASE_URL)\s*[:=]\s*['"`]?(https?:\/\/[^'"`\s,;]+)/gi);
+          for (const m of urlMatches) {
+            if (!envVars.find(e => e.var_name === "SUPABASE_URL")) {
+              envVars.push({ var_name: "SUPABASE_URL", var_value: m[1], source_file: filePath, is_secret: false });
+            }
+          }
+          // Look for anon key patterns
+          const keyMatches = content.matchAll(/(?:SUPABASE_ANON_KEY|SUPABASE_PUBLISHABLE_KEY|supabaseAnonKey|NEXT_PUBLIC_SUPABASE_ANON_KEY|VITE_SUPABASE_PUBLISHABLE_KEY)\s*[:=]\s*['"`]?(eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)/gi);
+          for (const m of keyMatches) {
+            if (!envVars.find(e => e.var_name.includes("ANON") || e.var_name.includes("PUBLISHABLE"))) {
+              envVars.push({ var_name: "SUPABASE_ANON_KEY", var_value: m[1], source_file: filePath, is_secret: false });
+            }
+          }
+          // Firebase config
+          const firebaseMatches = content.matchAll(/apiKey\s*:\s*['"`]([^'"`]+)/gi);
+          for (const m of firebaseMatches) {
+            if (!envVars.find(e => e.var_name === "FIREBASE_API_KEY")) {
+              envVars.push({ var_name: "FIREBASE_API_KEY", var_value: m[1], source_file: filePath, is_secret: false });
+            }
+          }
+          const projectIdMatches = content.matchAll(/projectId\s*:\s*['"`]([^'"`]+)/gi);
+          for (const m of projectIdMatches) {
+            if (!envVars.find(e => e.var_name === "FIREBASE_PROJECT_ID")) {
+              envVars.push({ var_name: "FIREBASE_PROJECT_ID", var_value: m[1], source_file: filePath, is_secret: false });
+            }
+          }
+        }
+      } catch {
+        // File not found, skip
       }
     }
 
