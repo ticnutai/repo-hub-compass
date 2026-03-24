@@ -184,3 +184,54 @@ export function useAccountProjects(accountId?: string) {
     enabled: !!accountId,
   });
 }
+
+// ---- Project Links ----
+export function useProjectLinks(projectId?: string) {
+  return useQuery({
+    queryKey: ["project_links", projectId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("project_links")
+        .select("*")
+        .eq("project_id", projectId!)
+        .order("created_at", { ascending: true });
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!projectId,
+  });
+}
+
+// ---- Project Services ----
+export function useProjectServices(projectId?: string) {
+  return useQuery({
+    queryKey: ["project_services", projectId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("project_services")
+        .select("*")
+        .eq("project_id", projectId!)
+        .order("service_type", { ascending: true });
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!projectId,
+  });
+}
+
+// ---- Project Env Vars ----
+export function useProjectEnvVars(projectId?: string) {
+  return useQuery({
+    queryKey: ["project_env_vars", projectId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("project_env_vars")
+        .select("*")
+        .eq("project_id", projectId!)
+        .order("var_name", { ascending: true });
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!projectId,
+  });
+}
