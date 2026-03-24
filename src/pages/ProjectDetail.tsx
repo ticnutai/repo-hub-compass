@@ -1,12 +1,13 @@
 import { useParams, Link } from "react-router-dom";
-import { ArrowRight, Github, Monitor, Plus, Bug, RefreshCw, Rocket, HardDrive, Eye, EyeOff, ExternalLink, RotateCw } from "lucide-react";
+import { ArrowRight, Github, Monitor, Plus, Bug, RefreshCw, Rocket, HardDrive, Eye, EyeOff, ExternalLink, RotateCw, Download, Upload } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useProject, useChangelogs, useBackups, useAccounts, useCreateBackup, useProfile } from "@/hooks/use-data";
+import { useProject, useChangelogs, useBackups, useAccounts, useCreateBackup, useCreateChangelog, useProfile } from "@/hooks/use-data";
 import { useState } from "react";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 import { GitHubSyncDialog } from "@/components/GitHubSyncDialog";
 
 const statusLabels: Record<string, string> = { active: "פעיל", paused: "מושהה", completed: "הושלם" };
@@ -23,6 +24,8 @@ export default function ProjectDetail() {
   const createBackup = useCreateBackup();
   const [showPasswords, setShowPasswords] = useState<Record<string, boolean>>({});
   const [syncOpen, setSyncOpen] = useState(false);
+  const [pulling, setPulling] = useState(false);
+  const [pushing, setPushing] = useState(false);
 
   const handleBackup = async () => {
     if (!id) return;
@@ -32,6 +35,62 @@ export default function ProjectDetail() {
     } catch (e: any) {
       toast.error(e.message);
     }
+  };
+
+  const handlePull = async () => {
+    if (!id || !project) return;
+    setPulling(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("לא מחובר");
+
+      const projectId_ = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      const res = await fetch(
+        `https://${projectId_}.supabase.co/functions/v1/sync-github`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({ project_id: id }),
+        }
+      );
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error || "שגיאה במשיכה");
+      toast.success(`משיכה הושלמה! ${result.imported} commits חדשים`);
+    } catch (e: any) {
+      toast.error(e.message);
+    }
+    setPulling(false);
+  };
+
+  const handlePush = async () => {
+    if (!id || !project) return;
+    setPushing(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("לא מחובר");
+
+      const projectId_ = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      const res = await fetch(
+        `https://${projectId_}.supabase.co/functions/v1/push-github`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({ project_id: id }),
+        }
+      );
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error || "שגיאה בדחיפה");
+      toast.success(result.message || "דחיפה הושלמה!");
+    } catch (e: any) {
+      toast.error(e.message);
+    }
+    setPushing(false);
   };
 
   if (isLoading) return <div className="space-y-4"><Skeleton className="h-8 w-48" /><Skeleton className="h-48 w-full" /></div>;
@@ -44,6 +103,8 @@ export default function ProjectDetail() {
       </div>
     );
   }
+
+  const isGithub = project.platform === "github" && project.repo_url;
 
   return (
     <div className="space-y-6" dir="rtl">
@@ -82,10 +143,32 @@ export default function ProjectDetail() {
               )}
             </div>
             <div className="flex flex-col gap-2">
-              {project.platform === "github" && project.repo_url && (
-                <Button variant="outline" className="border-accent text-accent hover:bg-accent/10" onClick={() => setSyncOpen(true)}>
-                  <RotateCw className="h-4 w-4 ml-2" /> סנכרן מ-GitHub
-                </Button>
+              {isGithub && (
+                <>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      className="border-green-500 text-green-700 hover:bg-green-50 flex-1"
+                      onClick={handlePull}
+                      disabled={pulling}
+                    >
+                      <Download className="h-4 w-4 ml-2" />
+                      {pulling ? "מושך..." : "משוך (Pull)"}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="border-blue-500 text-blue-700 hover:bg-blue-50 flex-1"
+                      onClick={handlePush}
+                      disabled={pushing}
+                    >
+                      <Upload className="h-4 w-4 ml-2" />
+                      {pushing ? "דוחף..." : "דחוף (Push)"}
+                    </Button>
+                  </div>
+                  <Button variant="outline" className="border-accent text-accent hover:bg-accent/10" onClick={() => setSyncOpen(true)}>
+                    <RotateCw className="h-4 w-4 ml-2" /> סנכרון מלא
+                  </Button>
+                </>
               )}
               <Button className="bg-accent text-accent-foreground hover:bg-accent/90" onClick={handleBackup} disabled={createBackup.isPending}>
                 <HardDrive className="h-4 w-4 ml-2" /> {createBackup.isPending ? "מגבה..." : "גיבוי עכשיו"}
@@ -164,7 +247,7 @@ export default function ProjectDetail() {
         </CardContent>
       </Card>
 
-      {project.platform === "github" && project.repo_url && (
+      {isGithub && (
         <GitHubSyncDialog
           open={syncOpen}
           onOpenChange={setSyncOpen}

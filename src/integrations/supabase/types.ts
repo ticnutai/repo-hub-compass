@@ -167,29 +167,35 @@ export type Database = {
       }
       profiles: {
         Row: {
+          auto_sync_enabled: boolean
           created_at: string
           display_name: string | null
           email: string | null
           github_token: string | null
           id: string
+          sync_interval: string
           updated_at: string
           user_id: string
         }
         Insert: {
+          auto_sync_enabled?: boolean
           created_at?: string
           display_name?: string | null
           email?: string | null
           github_token?: string | null
           id?: string
+          sync_interval?: string
           updated_at?: string
           user_id: string
         }
         Update: {
+          auto_sync_enabled?: boolean
           created_at?: string
           display_name?: string | null
           email?: string | null
           github_token?: string | null
           id?: string
+          sync_interval?: string
           updated_at?: string
           user_id?: string
         }
