@@ -19,6 +19,7 @@ import { ProjectConnections } from "@/components/ProjectConnections";
 import { ProjectAISummary } from "@/components/ProjectAISummary";
 import { ProjectNotes } from "@/components/ProjectNotes";
 import { ProjectWebhooks } from "@/components/ProjectWebhooks";
+import { ProjectAccountsPanel } from "@/components/ProjectAccountsPanel";
 import { exportProjectAsZip } from "@/lib/export-utils";
 
 const statusLabels: Record<string, string> = { active: "פעיל", paused: "מושהה", completed: "הושלם" };
