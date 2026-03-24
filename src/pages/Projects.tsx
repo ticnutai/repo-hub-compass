@@ -67,7 +67,6 @@ export default function Projects() {
             <DialogTrigger asChild>
               <Button className="bg-accent text-accent-foreground hover:bg-accent/90"><Plus className="h-4 w-4 ml-2" />פרויקט חדש</Button>
             </DialogTrigger>
-          </DialogTrigger>
           <DialogContent dir="rtl" className="border-2 border-accent">
             <DialogHeader><DialogTitle>הוסף פרויקט חדש</DialogTitle></DialogHeader>
             <div className="space-y-4 mt-4">
