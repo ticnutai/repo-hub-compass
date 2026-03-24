@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Folder, FolderPlus, Pencil, Trash2, ChevronDown, ChevronLeft, MoveRight, X, Check, Download } from "lucide-react";
+import { Folder, FolderPlus, Pencil, Trash2, ChevronDown, ChevronLeft, MoveRight, X, Check, Download, GripVertical } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,6 +39,41 @@ export default function Folders() {
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const [moveProjectId, setMoveProjectId] = useState<string | null>(null);
   const [exportingId, setExportingId] = useState<string | null>(null);
+  const [dragOverFolderId, setDragOverFolderId] = useState<string | null>(null);
+  const [dragOverUnassigned, setDragOverUnassigned] = useState(false);
+
+  const handleDragStart = (e: React.DragEvent, projectId: string) => {
+    e.dataTransfer.setData("projectId", projectId);
+    e.dataTransfer.effectAllowed = "move";
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+  };
+
+  const handleDropOnFolder = async (e: React.DragEvent, folderId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOverFolderId(null);
+    const projectId = e.dataTransfer.getData("projectId");
+    if (!projectId) return;
+    try {
+      await moveProject.mutateAsync({ projectId, folderId });
+      toast.success("פרויקט הועבר לתיקייה");
+    } catch (err: any) { toast.error(err.message); }
+  };
+
+  const handleDropOnUnassigned = async (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOverUnassigned(false);
+    const projectId = e.dataTransfer.getData("projectId");
+    if (!projectId) return;
+    try {
+      await moveProject.mutateAsync({ projectId, folderId: null });
+      toast.success("פרויקט הוצא מתיקייה");
+    } catch (err: any) { toast.error(err.message); }
+  };
 
   const handleExportFolder = async (folder: any) => {
     setExportingId(folder.id);
@@ -135,8 +170,11 @@ export default function Folders() {
     return (
       <div key={folder.id} style={{ marginRight: depth * 24 }}>
         <div
-          className="flex items-center justify-between p-3 rounded-lg hover:bg-secondary group cursor-pointer transition-colors"
+          className={`flex items-center justify-between p-3 rounded-lg hover:bg-secondary group cursor-pointer transition-colors ${dragOverFolderId === folder.id ? 'ring-2 ring-accent bg-accent/10' : ''}`}
           onClick={() => toggleFolder(folder.id)}
+          onDragOver={(e) => { handleDragOver(e); setDragOverFolderId(folder.id); }}
+          onDragLeave={() => setDragOverFolderId(null)}
+          onDrop={(e) => handleDropOnFolder(e, folder.id)}
         >
           <div className="flex items-center gap-2">
             {isExpanded ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronLeft className="h-4 w-4 text-muted-foreground" />}
@@ -173,15 +211,18 @@ export default function Folders() {
         {isExpanded && (
           <div className="mr-6 border-r-2 border-muted pr-2 space-y-1 mt-1">
             {folderProjects.map((p: any) => (
-              <Link key={p.id} to={`/projects/${p.id}`} className="flex items-center justify-between p-2 rounded hover:bg-secondary text-sm group/project">
-                <span>{p.name}</span>
+              <div key={p.id} draggable onDragStart={(e) => { e.stopPropagation(); handleDragStart(e, p.id); }} className="flex items-center justify-between p-2 rounded hover:bg-secondary text-sm group/project cursor-grab active:cursor-grabbing">
+                <div className="flex items-center gap-2">
+                  <GripVertical className="h-3 w-3 text-muted-foreground opacity-0 group-hover/project:opacity-100" />
+                  <Link to={`/projects/${p.id}`} onClick={(e) => e.stopPropagation()}><span>{p.name}</span></Link>
+                </div>
                 <div className="flex items-center gap-1">
                   <Badge variant="outline" className="text-xs">{p.language || "—"}</Badge>
                   <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover/project:opacity-100" onClick={(e) => { e.preventDefault(); setMoveProjectId(p.id); }}>
                     <MoveRight className="h-3 w-3" />
                   </Button>
                 </div>
-              </Link>
+              </div>
             ))}
             {subfolders.map((sf: any) => renderFolder(sf, depth + 1))}
             {folderProjects.length === 0 && subfolders.length === 0 && (
@@ -242,13 +283,20 @@ export default function Folders() {
 
       {/* Unassigned projects */}
       {unassignedProjects.length > 0 && (
-        <Card className="border-2 border-border">
+        <Card className={`border-2 ${dragOverUnassigned ? 'border-accent bg-accent/5' : 'border-border'}`}
+          onDragOver={(e) => { handleDragOver(e); setDragOverUnassigned(true); }}
+          onDragLeave={() => setDragOverUnassigned(false)}
+          onDrop={handleDropOnUnassigned}
+        >
           <CardHeader><CardTitle className="text-lg">פרויקטים ללא תיקייה</CardTitle></CardHeader>
           <CardContent>
             <div className="space-y-1">
               {unassignedProjects.map((p: any) => (
-                <div key={p.id} className="flex items-center justify-between p-2 rounded hover:bg-secondary group">
-                  <Link to={`/projects/${p.id}`} className="flex-1"><span className="text-sm">{p.name}</span></Link>
+                <div key={p.id} draggable onDragStart={(e) => handleDragStart(e, p.id)} className="flex items-center justify-between p-2 rounded hover:bg-secondary group cursor-grab active:cursor-grabbing">
+                  <div className="flex items-center gap-2">
+                    <GripVertical className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100" />
+                    <Link to={`/projects/${p.id}`} className="flex-1"><span className="text-sm">{p.name}</span></Link>
+                  </div>
                   <Button variant="ghost" size="sm" className="opacity-0 group-hover:opacity-100 text-xs" onClick={() => setMoveProjectId(p.id)}>
                     <MoveRight className="h-3 w-3 ml-1" /> העבר לתיקייה
                   </Button>
