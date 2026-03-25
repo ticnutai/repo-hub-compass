@@ -6,11 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { useProjects, useCreateProject, useDeleteProject, useUpdateProject } from "@/hooks/use-data";
+import { useProjects, useCreateProject, useDeleteProject, useUpdateProject, useProfile } from "@/hooks/use-data";
 import { Link } from "react-router-dom";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
@@ -29,6 +29,7 @@ export default function Projects() {
   const createProject = useCreateProject();
   const deleteProject = useDeleteProject();
   const updateProject = useUpdateProject();
+  const { data: profile } = useProfile();
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [platformFilter, setPlatformFilter] = useState("all");
@@ -43,6 +44,8 @@ export default function Projects() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [editDesc, setEditDesc] = useState("");
+  const [githubRenameDialog, setGithubRenameDialog] = useState(false);
+  const [pendingSave, setPendingSave] = useState<{ project: any; name: string; desc: string } | null>(null);
 
   const [newName, setNewName] = useState("");
   const [newDesc, setNewDesc] = useState("");
@@ -87,12 +90,65 @@ export default function Projects() {
 
   const saveEdit = async () => {
     if (!editingId || !editName.trim()) return;
+    const project = (projects || []).find(p => p.id === editingId);
+    const nameChanged = project && editName.trim() !== project.name;
+    const isGithubProject = project?.platform === "github" && project?.repo_url;
+
+    // If name changed on a GitHub project, ask user
+    if (nameChanged && isGithubProject) {
+      setPendingSave({ project, name: editName, desc: editDesc });
+      setGithubRenameDialog(true);
+      return;
+    }
+
+    await doSave(editingId, editName, editDesc);
+  };
+
+  const doSave = async (id: string, name: string, desc: string, renameOnGithub = false, project?: any) => {
     try {
-      await updateProject.mutateAsync({ id: editingId, name: editName, description: editDesc });
+      let newRepoUrl = project?.repo_url;
+      if (renameOnGithub && project?.repo_url && profile?.github_token) {
+        // Extract owner/repo from URL
+        const match = project.repo_url.match(/github\.com\/([^/]+)\/([^/]+)/);
+        if (match) {
+          const [, owner, oldRepo] = match;
+          const newName = name.trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+          const res = await fetch(`https://api.github.com/repos/${owner}/${oldRepo}`, {
+            method: "PATCH",
+            headers: {
+              Authorization: `token ${profile.github_token}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ name: newName }),
+          });
+          if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.message || "שגיאה בשינוי שם ב-GitHub");
+          }
+          const repoData = await res.json();
+          newRepoUrl = repoData.html_url;
+          toast.success("שם הריפו שונה גם ב-GitHub!");
+        }
+      }
+
+      await updateProject.mutateAsync({
+        id,
+        name,
+        description: desc,
+        ...(newRepoUrl !== project?.repo_url ? { repo_url: newRepoUrl } : {}),
+      });
       toast.success("פרויקט עודכן!");
       setEditingId(null);
     } catch (e: any) {
       toast.error(e.message);
+    }
+  };
+
+  const handleGithubRenameConfirm = async (renameOnGithub: boolean) => {
+    setGithubRenameDialog(false);
+    if (pendingSave) {
+      await doSave(pendingSave.project.id, pendingSave.name, pendingSave.desc, renameOnGithub, pendingSave.project);
+      setPendingSave(null);
     }
   };
 
