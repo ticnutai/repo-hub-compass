@@ -46,6 +46,9 @@ export default function Projects() {
   const [editDesc, setEditDesc] = useState("");
   const [githubRenameDialog, setGithubRenameDialog] = useState(false);
   const [pendingSave, setPendingSave] = useState<{ project: any; name: string; desc: string } | null>(null);
+  const [githubDeleteDialog, setGithubDeleteDialog] = useState(false);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [deletingGithub, setDeletingGithub] = useState(false);
 
   const [newName, setNewName] = useState("");
   const [newDesc, setNewDesc] = useState("");
@@ -73,6 +76,16 @@ export default function Projects() {
 
   const handleDelete = async () => {
     if (!deleteId) return;
+    const project = (projects || []).find(p => p.id === deleteId);
+    const isGithubProject = project?.platform === "github" && project?.repo_url;
+
+    if (isGithubProject) {
+      setPendingDeleteId(deleteId);
+      setDeleteId(null);
+      setGithubDeleteDialog(true);
+      return;
+    }
+
     try {
       await deleteProject.mutateAsync(deleteId);
       toast.success("פרויקט נמחק!");
@@ -80,6 +93,45 @@ export default function Projects() {
     } catch (e: any) {
       toast.error(e.message);
     }
+  };
+
+  const handleGithubDeleteConfirm = async (deleteOnGithub: boolean) => {
+    if (!pendingDeleteId) return;
+    const project = (projects || []).find(p => p.id === pendingDeleteId);
+    setGithubDeleteDialog(false);
+
+    if (deleteOnGithub && project?.repo_url && profile?.github_token) {
+      setDeletingGithub(true);
+      try {
+        const match = project.repo_url.match(/github\.com\/([^/]+)\/([^/]+)/);
+        if (match) {
+          const [, owner, repo] = match;
+          const res = await fetch(`https://api.github.com/repos/${owner}/${repo}`, {
+            method: "DELETE",
+            headers: { Authorization: `token ${profile.github_token}` },
+          });
+          if (!res.ok && res.status !== 404) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.message || "שגיאה במחיקת הריפו מ-GitHub");
+          }
+          toast.success("הריפו נמחק גם מ-GitHub!");
+        }
+      } catch (e: any) {
+        toast.error(e.message);
+        setDeletingGithub(false);
+        setPendingDeleteId(null);
+        return;
+      }
+      setDeletingGithub(false);
+    }
+
+    try {
+      await deleteProject.mutateAsync(pendingDeleteId);
+      toast.success("פרויקט נמחק!");
+    } catch (e: any) {
+      toast.error(e.message);
+    }
+    setPendingDeleteId(null);
   };
 
   const startEdit = (project: any) => {
@@ -390,6 +442,28 @@ export default function Projects() {
               <Github className="h-4 w-4 ml-2" /> כן, שנה גם ב-GitHub
             </Button>
             <Button variant="outline" onClick={() => handleGithubRenameConfirm(false)}>
+              רק כאן
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* GitHub Delete Confirmation */}
+      <Dialog open={githubDeleteDialog} onOpenChange={(v) => { if (!v) { setGithubDeleteDialog(false); setPendingDeleteId(null); } }}>
+        <DialogContent dir="rtl" className="border-2 border-destructive">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <Github className="h-5 w-5" /> למחוק גם מ-GitHub?
+            </DialogTitle>
+            <DialogDescription>
+              הפרויקט מחובר לריפו ב-GitHub. האם למחוק גם את הריפו מ-GitHub? <strong className="text-destructive">פעולה זו אינה ניתנת לביטול!</strong>
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex-row-reverse gap-2 sm:justify-start">
+            <Button className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={() => handleGithubDeleteConfirm(true)} disabled={deletingGithub}>
+              <Github className="h-4 w-4 ml-2" /> {deletingGithub ? "מוחק..." : "כן, מחק גם מ-GitHub"}
+            </Button>
+            <Button variant="outline" onClick={() => handleGithubDeleteConfirm(false)} disabled={deletingGithub}>
               רק כאן
             </Button>
           </DialogFooter>
