@@ -373,6 +373,28 @@ export default function Projects() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* GitHub Rename Confirmation */}
+      <Dialog open={githubRenameDialog} onOpenChange={(v) => { if (!v) { setGithubRenameDialog(false); setPendingSave(null); } }}>
+        <DialogContent dir="rtl" className="border-2 border-accent">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Github className="h-5 w-5" /> שינוי שם גם ב-GitHub?
+            </DialogTitle>
+            <DialogDescription>
+              שינית את שם הפרויקט. האם לשנות גם את שם הריפו ב-GitHub?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex-row-reverse gap-2 sm:justify-start">
+            <Button className="bg-accent text-accent-foreground hover:bg-accent/90" onClick={() => handleGithubRenameConfirm(true)}>
+              <Github className="h-4 w-4 ml-2" /> כן, שנה גם ב-GitHub
+            </Button>
+            <Button variant="outline" onClick={() => handleGithubRenameConfirm(false)}>
+              רק כאן
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
