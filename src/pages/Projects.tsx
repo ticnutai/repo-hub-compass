@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Search, Plus, LayoutGrid, List, Github, Monitor, FolderGit2, Trash2, Download, Archive, CheckSquare } from "lucide-react";
+import { Search, Plus, LayoutGrid, List, Github, Monitor, FolderGit2, Trash2, Download, Archive, CheckSquare, Pencil, Check, X } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { useProjects, useCreateProject, useDeleteProject } from "@/hooks/use-data";
+import { useProjects, useCreateProject, useDeleteProject, useUpdateProject } from "@/hooks/use-data";
 import { Link } from "react-router-dom";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
@@ -28,6 +28,7 @@ export default function Projects() {
   const { data: projects, isLoading } = useProjects();
   const createProject = useCreateProject();
   const deleteProject = useDeleteProject();
+  const updateProject = useUpdateProject();
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [platformFilter, setPlatformFilter] = useState("all");
@@ -37,6 +38,11 @@ export default function Projects() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [exporting, setExporting] = useState(false);
+
+  // Inline edit state
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editDesc, setEditDesc] = useState("");
 
   const [newName, setNewName] = useState("");
   const [newDesc, setNewDesc] = useState("");
@@ -68,6 +74,23 @@ export default function Projects() {
       await deleteProject.mutateAsync(deleteId);
       toast.success("פרויקט נמחק!");
       setDeleteId(null);
+    } catch (e: any) {
+      toast.error(e.message);
+    }
+  };
+
+  const startEdit = (project: any) => {
+    setEditingId(project.id);
+    setEditName(project.name);
+    setEditDesc(project.description || "");
+  };
+
+  const saveEdit = async () => {
+    if (!editingId || !editName.trim()) return;
+    try {
+      await updateProject.mutateAsync({ id: editingId, name: editName, description: editDesc });
+      toast.success("פרויקט עודכן!");
+      setEditingId(null);
     } catch (e: any) {
       toast.error(e.message);
     }
@@ -176,38 +199,95 @@ export default function Projects() {
               <div className="absolute top-2 right-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
                 <Checkbox checked={selected.has(project.id)} onCheckedChange={() => toggleSelect(project.id)} />
               </div>
-              <Link to={`/projects/${project.id}`}>
-                <Card className={`border-2 ${selected.has(project.id) ? 'border-accent bg-accent/5' : 'border-border'} hover:border-accent transition-all hover:shadow-md cursor-pointer`}>
-                  <CardContent className={`p-5 ${viewMode === "list" ? "flex items-center justify-between" : "space-y-3"}`}>
-                    <div className={viewMode === "list" ? "flex items-center gap-4 flex-1" : ""}>
-                      <div className="flex items-center gap-2 mb-1">
+
+              {editingId === project.id ? (
+                /* Inline edit mode */
+                <Card className="border-2 border-accent bg-accent/5">
+                  <CardContent className="p-5 space-y-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
                         {project.platform === 'github' ? <Github className="h-4 w-4 text-muted-foreground" /> : <Monitor className="h-4 w-4 text-muted-foreground" />}
-                        <h3 className="font-semibold text-foreground">{project.name}</h3>
+                        <span className="text-sm font-medium text-muted-foreground">עריכה מהירה</span>
                       </div>
-                      {viewMode === "grid" && <p className="text-sm text-muted-foreground line-clamp-2">{project.description}</p>}
-                      {project.tags && project.tags.length > 0 && (
-                        <div className="flex flex-wrap gap-1.5 mt-2">
-                          {project.tags.map(tag => <Badge key={tag} variant="outline" className="text-xs border-accent/50 text-accent">{tag}</Badge>)}
-                        </div>
-                      )}
+                      <div className="flex gap-1">
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground" onClick={() => setEditingId(null)}>
+                          <X className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-accent hover:text-accent hover:bg-accent/10" onClick={saveEdit} disabled={updateProject.isPending}>
+                          <Check className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2 mt-3">
-                      <Badge className={`${statusColors[project.status]} text-xs`}>{statusLabels[project.status]}</Badge>
-                      <span className="text-xs text-muted-foreground">{project.language}</span>
-                      <span className="text-xs text-muted-foreground mr-auto">{new Date(project.updated_at).toLocaleDateString("he-IL")}</span>
+                    <div>
+                      <Label className="text-xs text-muted-foreground">שם הפרויקט</Label>
+                      <Input
+                        className="mt-1 h-8 text-sm"
+                        value={editName}
+                        onChange={e => setEditName(e.target.value)}
+                        onKeyDown={e => { if (e.key === "Enter") saveEdit(); if (e.key === "Escape") setEditingId(null); }}
+                        autoFocus
+                      />
                     </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground">תיאור</Label>
+                      <Textarea
+                        className="mt-1 text-sm min-h-[60px] resize-none"
+                        value={editDesc}
+                        onChange={e => setEditDesc(e.target.value)}
+                        placeholder="הוסף תיאור לפרויקט..."
+                      />
+                    </div>
+                    <p className="text-xs text-muted-foreground">* השינוי יישמר כאן בלבד (לא ב-GitHub)</p>
                   </CardContent>
                 </Card>
-              </Link>
-              {/* Quick delete button */}
-              <Button
-                variant="ghost"
-                size="icon"
-                className="absolute top-2 left-2 h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive hover:bg-destructive/10"
-                onClick={(e) => { e.preventDefault(); e.stopPropagation(); setDeleteId(project.id); }}
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-              </Button>
+              ) : (
+                /* Normal view */
+                <Link to={`/projects/${project.id}`}>
+                  <Card className={`border-2 ${selected.has(project.id) ? 'border-accent bg-accent/5' : 'border-border'} hover:border-accent transition-all hover:shadow-md cursor-pointer`}>
+                    <CardContent className={`p-5 ${viewMode === "list" ? "flex items-center justify-between" : "space-y-3"}`}>
+                      <div className={viewMode === "list" ? "flex items-center gap-4 flex-1" : ""}>
+                        <div className="flex items-center gap-2 mb-1">
+                          {project.platform === 'github' ? <Github className="h-4 w-4 text-muted-foreground" /> : <Monitor className="h-4 w-4 text-muted-foreground" />}
+                          <h3 className="font-semibold text-foreground">{project.name}</h3>
+                        </div>
+                        {viewMode === "grid" && <p className="text-sm text-muted-foreground line-clamp-2">{project.description || <span className="italic opacity-50">ללא תיאור</span>}</p>}
+                        {project.tags && project.tags.length > 0 && (
+                          <div className="flex flex-wrap gap-1.5 mt-2">
+                            {project.tags.map(tag => <Badge key={tag} variant="outline" className="text-xs border-accent/50 text-accent">{tag}</Badge>)}
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 mt-3">
+                        <Badge className={`${statusColors[project.status]} text-xs`}>{statusLabels[project.status]}</Badge>
+                        <span className="text-xs text-muted-foreground">{project.language}</span>
+                        <span className="text-xs text-muted-foreground mr-auto">{new Date(project.updated_at).toLocaleDateString("he-IL")}</span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </Link>
+              )}
+
+              {/* Quick action buttons (only in non-edit mode) */}
+              {editingId !== project.id && (
+                <>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="absolute top-2 left-10 h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-accent hover:bg-accent/10"
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); startEdit(project); }}
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="absolute top-2 left-2 h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive hover:bg-destructive/10"
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); setDeleteId(project.id); }}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </>
+              )}
             </div>
           ))}
         </div>
