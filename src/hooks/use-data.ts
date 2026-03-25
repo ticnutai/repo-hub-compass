@@ -236,8 +236,10 @@ export function useSystemAlerts(limit = 20) {
         .select("*")
         .order("created_at", { ascending: false })
         .limit(limit);
-      if (error) throw error;
-      return data as any[];
+
+      // Do not crash the notification system if this table is not deployed yet.
+      if (error) return [] as any[];
+      return (data || []) as any[];
     },
   });
 }
