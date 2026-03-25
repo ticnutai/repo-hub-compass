@@ -11,11 +11,19 @@ import { he } from "date-fns/locale";
 function NotificationItem({ notification }: { notification: AppNotification }) {
   const icon = notification.type === "failed_backup"
     ? <AlertTriangle className="h-4 w-4 text-destructive shrink-0" />
-    : <Clock className="h-4 w-4 text-amber-500 shrink-0" />;
+    : notification.type === "system_alert"
+      ? <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0" />
+      : <Clock className="h-4 w-4 text-amber-500 shrink-0" />;
+
+  const targetPath = notification.type === "failed_backup"
+    ? "/backups"
+    : notification.type === "system_alert"
+      ? "/settings"
+      : `/projects/${notification.projectId}`;
 
   return (
     <Link
-      to={notification.type === "failed_backup" ? "/backups" : `/projects/${notification.projectId}`}
+      to={targetPath}
       className="flex items-start gap-3 p-3 rounded-lg hover:bg-secondary transition-colors"
     >
       <div className="mt-0.5">{icon}</div>

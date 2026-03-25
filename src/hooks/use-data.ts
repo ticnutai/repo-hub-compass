@@ -2,6 +2,23 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 
+async function createAuditLogEntry(params: {
+  userId: string;
+  action: string;
+  entityType: string;
+  entityId?: string;
+  metadata?: Record<string, unknown>;
+}) {
+  // Best-effort logging: never block UX on audit failures.
+  await supabase.from("audit_logs" as any).insert({
+    user_id: params.userId,
+    action: params.action,
+    entity_type: params.entityType,
+    entity_id: params.entityId || null,
+    metadata: params.metadata || {},
+  } as any);
+}
+
 // ---- Profile ----
 export function useProfile() {
   const { user } = useAuth();
@@ -66,6 +83,13 @@ export function useCreateProject() {
         .select()
         .single();
       if (error) throw error;
+      await createAuditLogEntry({
+        userId: user!.id,
+        action: "project_created",
+        entityType: "project",
+        entityId: data.id,
+        metadata: { name: data.name, platform: data.platform },
+      });
       return data;
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["projects"] }),
@@ -95,10 +119,19 @@ export function useUpdateProject() {
 
 export function useDeleteProject() {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   return useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.from("projects").delete().eq("id", id);
       if (error) throw error;
+      if (user?.id) {
+        await createAuditLogEntry({
+          userId: user.id,
+          action: "project_deleted",
+          entityType: "project",
+          entityId: id,
+        });
+      }
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["projects"] }),
   });
@@ -126,6 +159,10 @@ export function useCreateAccount() {
     mutationFn: async (account: {
       service_name: string; service_type?: string; username?: string;
       email?: string; password?: string; api_key?: string; notes?: string;
+      github_auto_import_enabled?: boolean;
+      github_import_interval_minutes?: number;
+      github_target_project_id?: string | null;
+      github_last_import_at?: string | null;
     }) => {
       const { data, error } = await supabase
         .from("accounts")
@@ -133,6 +170,13 @@ export function useCreateAccount() {
         .select()
         .single();
       if (error) throw error;
+      await createAuditLogEntry({
+        userId: user!.id,
+        action: "account_created",
+        entityType: "account",
+        entityId: data.id,
+        metadata: { service_name: data.service_name, username: data.username },
+      });
       return data;
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["accounts"] }),
@@ -145,6 +189,10 @@ export function useUpdateAccount() {
     mutationFn: async ({ id, ...updates }: {
       id: string; service_name?: string; service_type?: string; username?: string;
       email?: string; password?: string; api_key?: string; notes?: string;
+      github_auto_import_enabled?: boolean;
+      github_import_interval_minutes?: number;
+      github_target_project_id?: string | null;
+      github_last_import_at?: string | null;
     }) => {
       const { data, error } = await supabase
         .from("accounts")
@@ -161,12 +209,36 @@ export function useUpdateAccount() {
 
 export function useDeleteAccount() {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   return useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.from("accounts").delete().eq("id", id);
       if (error) throw error;
+      if (user?.id) {
+        await createAuditLogEntry({
+          userId: user.id,
+          action: "account_deleted",
+          entityType: "account",
+          entityId: id,
+        });
+      }
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["accounts"] }),
+  });
+}
+
+export function useSystemAlerts(limit = 20) {
+  return useQuery({
+    queryKey: ["system_alerts", limit],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("system_alerts" as any)
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(limit);
+      if (error) throw error;
+      return data as any[];
+    },
   });
 }
 
@@ -356,6 +428,19 @@ export function useProjectAccounts(projectId?: string) {
   });
 }
 
+export function useProjectAccountLinks() {
+  return useQuery({
+    queryKey: ["project_accounts_index"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("account_projects")
+        .select("project_id, account_id, accounts(id, service_name, username, email, api_key, password)");
+      if (error) throw error;
+      return data;
+    },
+  });
+}
+
 export function useLinkAccountToProject() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
@@ -371,6 +456,7 @@ export function useLinkAccountToProject() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["project_accounts"] });
+      queryClient.invalidateQueries({ queryKey: ["project_accounts_index"] });
       queryClient.invalidateQueries({ queryKey: ["account_projects"] });
     },
   });
@@ -385,6 +471,7 @@ export function useUnlinkAccountFromProject() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["project_accounts"] });
+      queryClient.invalidateQueries({ queryKey: ["project_accounts_index"] });
       queryClient.invalidateQueries({ queryKey: ["account_projects"] });
     },
   });
@@ -751,5 +838,50 @@ export function useDeleteWebhook() {
       if (error) throw error;
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["project_webhooks"] }),
+  });
+}
+
+// ---- Project Members / Roles ----
+export function useProjectMembers(projectId?: string) {
+  return useQuery({
+    queryKey: ["project_members", projectId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("project_members" as any)
+        .select("*")
+        .eq("project_id", projectId!)
+        .order("created_at", { ascending: true });
+      if (error) throw error;
+      return data as any[];
+    },
+    enabled: !!projectId,
+  });
+}
+
+export function useUpsertProjectMember() {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+  return useMutation({
+    mutationFn: async ({ project_id, user_id, role }: { project_id: string; user_id: string; role: "owner" | "admin" | "viewer" }) => {
+      const { data, error } = await supabase
+        .from("project_members" as any)
+        .upsert({ project_id, user_id, role } as any, { onConflict: "project_id,user_id" })
+        .select()
+        .single();
+      if (error) throw error;
+
+      if (user?.id) {
+        await createAuditLogEntry({
+          userId: user.id,
+          action: "project_member_upserted",
+          entityType: "project_member",
+          entityId: data.id,
+          metadata: { project_id, user_id, role },
+        });
+      }
+
+      return data;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["project_members"] }),
   });
 }

@@ -6,11 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { useProjects, useCreateProject, useDeleteProject, useUpdateProject, useProfile } from "@/hooks/use-data";
+import { useProjects, useCreateProject, useDeleteProject, useUpdateProject, useProfile, useAccounts, useProjectAccountLinks } from "@/hooks/use-data";
 import { Link } from "react-router-dom";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
@@ -26,6 +27,8 @@ const statusColors: Record<string, string> = {
 
 export default function Projects() {
   const { data: projects, isLoading } = useProjects();
+  const { data: accounts } = useAccounts();
+  const { data: projectAccountLinks } = useProjectAccountLinks();
   const createProject = useCreateProject();
   const deleteProject = useDeleteProject();
   const updateProject = useUpdateProject();
@@ -33,6 +36,7 @@ export default function Projects() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [platformFilter, setPlatformFilter] = useState("all");
+  const [accountTab, setAccountTab] = useState("all");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [open, setOpen] = useState(false);
   const [githubOpen, setGithubOpen] = useState(false);
@@ -55,11 +59,43 @@ export default function Projects() {
   const [newPlatform, setNewPlatform] = useState<"github" | "local">("github");
   const [newLang, setNewLang] = useState("");
 
+  const githubAccounts = (accounts || []).filter((account: any) =>
+    account.service_name?.toLowerCase().includes("github")
+  );
+
+  const projectGithubAccountsMap = (projectAccountLinks || []).reduce((acc: Record<string, Array<{ id: string; name: string; username: string; email: string; token: string }>>, link: any) => {
+    const account = link.accounts;
+    if (!account || !account.service_name?.toLowerCase().includes("github")) return acc;
+    if (!acc[link.project_id]) acc[link.project_id] = [];
+    const alreadyExists = acc[link.project_id].some((existing) => existing.id === account.id);
+    if (alreadyExists) return acc;
+    acc[link.project_id].push({
+      id: account.id,
+      name: account.service_name,
+      username: account.username || "",
+      email: account.email || "",
+      token: account.api_key || account.password || "",
+    });
+    return acc;
+  }, {});
+
+  const resolveProjectGithubToken = (projectId: string) => {
+    const linkedGithubAccounts = projectGithubAccountsMap[projectId] || [];
+    if (accountTab !== "all") {
+      const activeAccount = linkedGithubAccounts.find((account) => account.id === accountTab);
+      if (activeAccount?.token) return activeAccount.token;
+    }
+    const firstLinkedToken = linkedGithubAccounts.find((account) => !!account.token)?.token;
+    return firstLinkedToken || profile?.github_token || "";
+  };
+
   const filtered = (projects || []).filter((p) => {
     const matchSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) || (p.description || "").includes(searchQuery);
     const matchStatus = statusFilter === "all" || p.status === statusFilter;
     const matchPlatform = platformFilter === "all" || p.platform === platformFilter;
-    return matchSearch && matchStatus && matchPlatform;
+    const linkedGithubAccounts = projectGithubAccountsMap[p.id] || [];
+    const matchAccount = accountTab === "all" || (p.platform === "github" && linkedGithubAccounts.some((a) => a.id === accountTab));
+    return matchSearch && matchStatus && matchPlatform && matchAccount;
   });
 
   const handleCreate = async () => {
@@ -100,7 +136,9 @@ export default function Projects() {
     const project = (projects || []).find(p => p.id === pendingDeleteId);
     setGithubDeleteDialog(false);
 
-    if (deleteOnGithub && project?.repo_url && profile?.github_token) {
+    const githubToken = project ? resolveProjectGithubToken(project.id) : "";
+
+    if (deleteOnGithub && project?.repo_url && githubToken) {
       setDeletingGithub(true);
       try {
         const match = project.repo_url.match(/github\.com\/([^/]+)\/([^/]+)/);
@@ -108,7 +146,7 @@ export default function Projects() {
           const [, owner, repo] = match;
           const res = await fetch(`https://api.github.com/repos/${owner}/${repo}`, {
             method: "DELETE",
-            headers: { Authorization: `token ${profile.github_token}` },
+            headers: { Authorization: `token ${githubToken}` },
           });
           if (!res.ok && res.status !== 404) {
             const err = await res.json().catch(() => ({}));
@@ -159,7 +197,8 @@ export default function Projects() {
   const doSave = async (id: string, name: string, desc: string, renameOnGithub = false, project?: any) => {
     try {
       let newRepoUrl = project?.repo_url;
-      if (renameOnGithub && project?.repo_url && profile?.github_token) {
+      const githubToken = resolveProjectGithubToken(id);
+      if (renameOnGithub && project?.repo_url && githubToken) {
         // Extract owner/repo from URL
         const match = project.repo_url.match(/github\.com\/([^/]+)\/([^/]+)/);
         if (match) {
@@ -168,7 +207,7 @@ export default function Projects() {
           const res = await fetch(`https://api.github.com/repos/${owner}/${oldRepo}`, {
             method: "PATCH",
             headers: {
-              Authorization: `token ${profile.github_token}`,
+              Authorization: `token ${githubToken}`,
               "Content-Type": "application/json",
             },
             body: JSON.stringify({ name: newName }),
@@ -237,7 +276,7 @@ export default function Projects() {
             </Button>
           )}
           <Button variant="outline" className="border-accent text-accent hover:bg-accent/10" onClick={() => setGithubOpen(true)}>
-            <Github className="h-4 w-4 ml-2" /> ייבוא מ-GitHub
+            <Github className="h-4 w-4 ml-2" /> GitHub
           </Button>
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
@@ -265,7 +304,11 @@ export default function Projects() {
         </Dialog>
         </div>
       </div>
-      <GitHubImportDialog open={githubOpen} onOpenChange={setGithubOpen} />
+      <GitHubImportDialog
+        open={githubOpen}
+        onOpenChange={setGithubOpen}
+        preselectedAccountId={accountTab !== "all" ? accountTab : undefined}
+      />
 
       <div className="flex flex-wrap gap-3 items-center">
         <div className="relative flex-1 min-w-[200px] max-w-sm">
@@ -294,6 +337,19 @@ export default function Projects() {
           <Button variant={viewMode === "list" ? "default" : "ghost"} size="icon" onClick={() => setViewMode("list")}><List className="h-4 w-4" /></Button>
         </div>
       </div>
+
+      {githubAccounts.length > 0 && (
+        <Tabs value={accountTab} onValueChange={setAccountTab} dir="rtl">
+          <TabsList className="h-auto flex-wrap justify-start gap-1 p-1">
+            <TabsTrigger value="all">כל הפרויקטים</TabsTrigger>
+            {githubAccounts.map((account: any) => (
+              <TabsTrigger key={account.id} value={account.id}>
+                {account.username || account.email || `חשבון ${account.id.slice(0, 6)}`}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
+      )}
 
       {isLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
@@ -359,6 +415,15 @@ export default function Projects() {
                           <h3 className="font-semibold text-foreground">{project.name}</h3>
                         </div>
                         {viewMode === "grid" && <p className="text-sm text-muted-foreground line-clamp-2">{project.description || <span className="italic opacity-50">ללא תיאור</span>}</p>}
+                        {projectGithubAccountsMap[project.id]?.length > 0 && (
+                          <div className="flex flex-wrap gap-1.5 mt-2">
+                            {projectGithubAccountsMap[project.id].map((account) => (
+                              <Badge key={`${project.id}-${account.id}`} variant="outline" className="text-xs border-sky-300 text-sky-700 bg-sky-50">
+                                GitHub: {account.username || account.name}
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
                         {project.tags && project.tags.length > 0 && (
                           <div className="flex flex-wrap gap-1.5 mt-2">
                             {project.tags.map(tag => <Badge key={tag} variant="outline" className="text-xs border-accent/50 text-accent">{tag}</Badge>)}

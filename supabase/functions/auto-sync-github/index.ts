@@ -16,16 +16,15 @@ Deno.serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Get all profiles with auto_sync_enabled and a github_token
-    const { data: profiles, error: profilesError } = await supabase
-      .from("profiles")
-      .select("user_id, github_token, sync_interval")
-      .eq("auto_sync_enabled", true)
-      .not("github_token", "is", null);
+    // Get all GitHub accounts with per-account auto import enabled
+    const { data: accounts, error: accountsError } = await supabase
+      .from("accounts")
+      .select("id, user_id, service_name, api_key, password, github_auto_import_enabled, github_import_interval_minutes, github_target_project_id, github_last_import_at")
+      .eq("github_auto_import_enabled", true);
 
-    if (profilesError) throw profilesError;
-    if (!profiles || profiles.length === 0) {
-      return new Response(JSON.stringify({ message: "No users with auto-sync enabled", synced: 0 }), {
+    if (accountsError) throw accountsError;
+    if (!accounts || accounts.length === 0) {
+      return new Response(JSON.stringify({ message: "No GitHub accounts with auto-import enabled", synced: 0 }), {
         status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -33,16 +32,58 @@ Deno.serve(async (req) => {
     let totalSynced = 0;
     let totalImported = 0;
 
-    for (const profile of profiles) {
-      // Get all GitHub projects for this user
-      const { data: projects, error: projErr } = await supabase
-        .from("projects")
-        .select("*")
-        .eq("user_id", profile.user_id)
-        .eq("platform", "github")
-        .not("repo_url", "is", null);
+    for (const account of accounts) {
+      const serviceName = (account.service_name || "").toLowerCase();
+      if (!serviceName.includes("github")) continue;
 
-      if (projErr || !projects) continue;
+      const token = account.api_key || account.password;
+      if (!token) {
+        await supabase.from("system_alerts" as any).insert({
+          user_id: account.user_id,
+          account_id: account.id,
+          severity: "error",
+          title: "חסר טוקן לחשבון GitHub",
+          message: "ייבוא אוטומטי הופעל אבל לא הוגדר טוקן לחשבון.",
+          status: "open",
+        } as any);
+        continue;
+      }
+
+      const intervalMinutes = Number(account.github_import_interval_minutes || 60);
+      const lastImportAt = account.github_last_import_at ? new Date(account.github_last_import_at) : null;
+      const now = new Date();
+
+      if (lastImportAt) {
+        const elapsedMs = now.getTime() - lastImportAt.getTime();
+        if (elapsedMs < intervalMinutes * 60 * 1000) {
+          continue;
+        }
+      }
+
+      let projects: any[] = [];
+
+      if (account.github_target_project_id) {
+        const { data: targetProject } = await supabase
+          .from("projects")
+          .select("*")
+          .eq("id", account.github_target_project_id)
+          .eq("user_id", account.user_id)
+          .eq("platform", "github")
+          .not("repo_url", "is", null)
+          .maybeSingle();
+
+        if (targetProject) projects = [targetProject];
+      } else {
+        const { data: linkedProjects } = await supabase
+          .from("account_projects")
+          .select("project_id, projects(*)")
+          .eq("account_id", account.id)
+          .eq("user_id", account.user_id);
+
+        projects = (linkedProjects || [])
+          .map((row: any) => row.projects)
+          .filter((project: any) => project && project.platform === "github" && project.repo_url);
+      }
 
       for (const project of projects) {
         try {
@@ -57,13 +98,24 @@ Deno.serve(async (req) => {
             `https://api.github.com/repos/${owner}/${repo}/commits?since=${since}&per_page=50`,
             {
               headers: {
-                Authorization: `Bearer ${profile.github_token}`,
+                Authorization: `Bearer ${token}`,
                 Accept: "application/vnd.github.v3+json",
               },
             }
           );
 
-          if (!githubRes.ok) continue;
+          if (!githubRes.ok) {
+            await supabase.from("system_alerts" as any).insert({
+              user_id: account.user_id,
+              project_id: project.id,
+              account_id: account.id,
+              severity: "warning",
+              title: "כשל בסנכרון אוטומטי",
+              message: `GitHub API returned ${githubRes.status} עבור ${project.name}`,
+              status: "open",
+            } as any);
+            continue;
+          }
           const commits = await githubRes.json();
 
           for (const commit of commits) {
@@ -77,7 +129,7 @@ Deno.serve(async (req) => {
             else if (lowerMsg.includes("deploy") || lowerMsg.includes("release")) changeType = "deploy";
 
             const { error: insertError } = await supabase.from("changelogs").insert({
-              user_id: profile.user_id,
+              user_id: account.user_id,
               project_id: project.id,
               description: message,
               change_type: changeType,
@@ -97,6 +149,11 @@ Deno.serve(async (req) => {
           // skip individual project errors
         }
       }
+
+      await supabase
+        .from("accounts")
+        .update({ github_last_import_at: new Date().toISOString() })
+        .eq("id", account.id);
     }
 
     return new Response(

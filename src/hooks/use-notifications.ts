@@ -1,8 +1,8 @@
 import { useMemo } from "react";
-import { useProjects, useBackups } from "@/hooks/use-data";
+import { useProjects, useBackups, useSystemAlerts } from "@/hooks/use-data";
 import { differenceInDays } from "date-fns";
 
-export type NotificationType = "stale_project" | "failed_backup";
+export type NotificationType = "stale_project" | "failed_backup" | "system_alert";
 
 export interface AppNotification {
   id: string;
@@ -19,6 +19,7 @@ const STALE_THRESHOLD_DAYS = 14;
 export function useNotifications() {
   const { data: projects } = useProjects();
   const { data: backups } = useBackups();
+  const { data: systemAlerts } = useSystemAlerts(20);
 
   const notifications = useMemo<AppNotification[]>(() => {
     const items: AppNotification[] = [];
@@ -58,10 +59,23 @@ export function useNotifications() {
     });
 
     // Sort by timestamp desc
+    (systemAlerts || []).forEach((alert: any) => {
+      items.push({
+        id: `system-alert-${alert.id}`,
+        type: "system_alert",
+        title: alert.title || "התראת מערכת",
+        description: alert.message || "אירוע מערכת",
+        timestamp: alert.created_at,
+        projectId: alert.project_id || "",
+        projectName: "מערכת",
+      });
+    });
+
+    // Sort by timestamp desc
     items.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
     return items;
-  }, [projects, backups]);
+  }, [projects, backups, systemAlerts]);
 
   return {
     notifications,

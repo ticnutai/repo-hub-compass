@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { Github, Loader2, Check, Search, GitBranch, Lock, Globe, Filter } from "lucide-react";
+import { Github, Loader2, Check, Search, GitBranch, Lock, Globe, Filter, Plus, User } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useCreateProject, useProfile } from "@/hooks/use-data";
+import { useCreateProject, useProfile, useAccounts, useUpdateAccount, useLinkAccountToProject, useCreateAccount, useProjects } from "@/hooks/use-data";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -35,11 +35,23 @@ interface GitHubRepo {
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  preselectedAccountId?: string;
 }
 
-export function GitHubImportDialog({ open, onOpenChange }: Props) {
+export function GitHubImportDialog({ open, onOpenChange, preselectedAccountId }: Props) {
   const { data: profile } = useProfile();
+  const { data: accounts } = useAccounts();
+  const { data: projects } = useProjects();
+  const updateAccount = useUpdateAccount();
+  const createAccount = useCreateAccount();
+  const linkAccountToProject = useLinkAccountToProject();
   const [token, setToken] = useState("");
+  const [selectedAccountId, setSelectedAccountId] = useState<string>(preselectedAccountId || "none");
+  const [accountSyncDraft, setAccountSyncDraft] = useState<Record<string, { enabled: boolean; interval: number; targetProjectId: string }>>({});
+  const [showAddAccount, setShowAddAccount] = useState(false);
+  const [newGithubUsername, setNewGithubUsername] = useState("");
+  const [newGithubEmail, setNewGithubEmail] = useState("");
+  const [newGithubToken, setNewGithubToken] = useState("");
   const [repos, setRepos] = useState<GitHubRepo[]>([]);
   const [loading, setLoading] = useState(false);
   const [importing, setImporting] = useState(false);
@@ -57,19 +69,101 @@ export function GitHubImportDialog({ open, onOpenChange }: Props) {
   const [loadingBranches, setLoadingBranches] = useState<Set<number>>(new Set());
   const [expandedRepo, setExpandedRepo] = useState<number | null>(null);
 
-  const savedToken = profile?.github_token;
+  const githubAccounts = (accounts || []).filter((account: any) =>
+    account.service_name?.toLowerCase().includes("github")
+  );
+  const githubProjects = (projects || []).filter((project: any) => project.platform === "github");
+  const selectedAccount = selectedAccountId === "none"
+    ? null
+    : githubAccounts.find((account: any) => account.id === selectedAccountId) || null;
+  const selectedAccountToken = selectedAccount?.api_key || selectedAccount?.password || "";
+  const savedToken = selectedAccountToken || profile?.github_token || "";
 
   useEffect(() => {
-    if (open && savedToken && step === "token" && repos.length === 0) {
-      fetchRepos(savedToken);
+    setSelectedAccountId(preselectedAccountId || "none");
+  }, [preselectedAccountId]);
+
+  useEffect(() => {
+    const nextDraft: Record<string, { enabled: boolean; interval: number; targetProjectId: string }> = {};
+    for (const account of githubAccounts as any[]) {
+      nextDraft[account.id] = {
+        enabled: !!account.github_auto_import_enabled,
+        interval: Number(account.github_import_interval_minutes || 60),
+        targetProjectId: account.github_target_project_id || "all",
+      };
     }
-  }, [open, savedToken]);
+    setAccountSyncDraft(nextDraft);
+  }, [accounts]);
+
+  const handleAddGithubAccount = async () => {
+    if (!newGithubUsername.trim() || !newGithubToken.trim()) {
+      toast.error("יש להזין שם משתמש וטוקן");
+      return;
+    }
+
+    try {
+      const created = await createAccount.mutateAsync({
+        service_name: "GitHub",
+        service_type: "קוד",
+        username: newGithubUsername.trim(),
+        email: newGithubEmail.trim() || undefined,
+        api_key: newGithubToken.trim(),
+        password: "",
+        notes: "חשבון GitHub",
+        github_auto_import_enabled: false,
+        github_import_interval_minutes: 60,
+        github_target_project_id: null,
+      });
+
+      if (created?.id) setSelectedAccountId(created.id);
+      setNewGithubUsername("");
+      setNewGithubEmail("");
+      setNewGithubToken("");
+      setShowAddAccount(false);
+      toast.success("חשבון GitHub נוסף בהצלחה");
+    } catch (e: any) {
+      toast.error(e.message);
+    }
+  };
+
+  const updateDraft = (accountId: string, patch: Partial<{ enabled: boolean; interval: number; targetProjectId: string }>) => {
+    setAccountSyncDraft((prev) => ({
+      ...prev,
+      [accountId]: {
+        enabled: prev[accountId]?.enabled ?? false,
+        interval: prev[accountId]?.interval ?? 60,
+        targetProjectId: prev[accountId]?.targetProjectId ?? "all",
+        ...patch,
+      },
+    }));
+  };
+
+  const saveAccountSyncSettings = async (accountId: string) => {
+    const draft = accountSyncDraft[accountId];
+    if (!draft) return;
+
+    try {
+      await updateAccount.mutateAsync({
+        id: accountId,
+        github_auto_import_enabled: draft.enabled,
+        github_import_interval_minutes: Math.max(5, Math.min(10080, Number(draft.interval || 60))),
+        github_target_project_id: draft.targetProjectId === "all" ? null : draft.targetProjectId,
+      });
+      toast.success("הגדרות אוטו-ייבוא נשמרו לחשבון");
+    } catch (e: any) {
+      toast.error(e.message);
+    }
+  };
 
   const fetchRepos = async (useToken?: string) => {
     const t = useToken || token.trim();
     if (!t) return;
     setLoading(true);
     try {
+      if (!useToken && selectedAccount && t && t !== selectedAccountToken) {
+        await updateAccount.mutateAsync({ id: selectedAccount.id, api_key: t });
+      }
+
       const res = await fetch("https://api.github.com/user/repos?per_page=100&sort=updated", {
         headers: { Authorization: `Bearer ${t}`, Accept: "application/vnd.github.v3+json" },
       });
@@ -168,7 +262,12 @@ export function GitHubImportDialog({ open, onOpenChange }: Props) {
           repo_url: repo.html_url,
         });
         success++;
-        if (result?.id) createdIds.push(result.id);
+        if (result?.id) {
+          createdIds.push(result.id);
+          if (selectedAccount) {
+            await linkAccountToProject.mutateAsync({ account_id: selectedAccount.id, project_id: result.id });
+          }
+        }
       } catch { /* skip */ }
     }
     toast.success(`${success} פרויקטים יובאו בהצלחה! מנתח אוטומטית...`);
@@ -187,6 +286,12 @@ export function GitHubImportDialog({ open, onOpenChange }: Props) {
     setStep("token");
     setSelected(new Set());
     setRepos([]);
+    setToken("");
+    setShowAddAccount(false);
+    setNewGithubUsername("");
+    setNewGithubEmail("");
+    setNewGithubToken("");
+    setSelectedAccountId(preselectedAccountId || "none");
     setSearch("");
     setLangFilter("all");
     setVisFilter("all");
@@ -204,16 +309,157 @@ export function GitHubImportDialog({ open, onOpenChange }: Props) {
       <DialogContent dir="rtl" className="border-2 border-accent max-w-2xl max-h-[90vh]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-primary">
-            <Github className="h-5 w-5" /> ייבוא מ-GitHub
+            <Github className="h-5 w-5" /> GitHub
           </DialogTitle>
         </DialogHeader>
 
         {step === "token" && !loading && (
           <div className="space-y-4 mt-2">
+            <div className="rounded-lg border border-accent/30 p-3 space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-medium">חשבונות GitHub</p>
+                <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setShowAddAccount((v) => !v)}>
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
+
+              {showAddAccount && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                  <Input
+                    placeholder="שם משתמש"
+                    value={newGithubUsername}
+                    onChange={(e) => setNewGithubUsername(e.target.value)}
+                  />
+                  <Input
+                    placeholder="אימייל (אופציונלי)"
+                    value={newGithubEmail}
+                    onChange={(e) => setNewGithubEmail(e.target.value)}
+                  />
+                  <Input
+                    placeholder="ghp_xxx"
+                    type="password"
+                    value={newGithubToken}
+                    onChange={(e) => setNewGithubToken(e.target.value)}
+                  />
+                  <div className="md:col-span-3 flex justify-end">
+                    <Button className="bg-accent text-accent-foreground hover:bg-accent/90" onClick={handleAddGithubAccount} disabled={createAccount.isPending}>
+                      <Plus className="h-4 w-4 ml-2" /> הוסף חשבון GitHub
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {githubAccounts.length > 0 ? (
+                <div className="space-y-2 max-h-64 overflow-y-auto">
+                  {githubAccounts.map((account: any) => {
+                    const hasToken = !!(account.api_key || account.password);
+                    const isActive = selectedAccountId === account.id;
+                    const draft = accountSyncDraft[account.id] || { enabled: false, interval: 60, targetProjectId: "all" };
+                    return (
+                      <div
+                        key={account.id}
+                        className={`w-full text-right rounded-md border p-2 transition-colors ${isActive ? "border-accent bg-accent/10" : "border-border hover:border-accent/40"}`}
+                      >
+                        <button type="button" className="w-full" onClick={() => setSelectedAccountId(account.id)}>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <User className="h-3.5 w-3.5 text-muted-foreground" />
+                              <span className="text-sm font-medium">{account.username || account.email || "חשבון GitHub"}</span>
+                            </div>
+                            <Badge variant="outline" className={hasToken ? "text-green-700 border-green-300" : "text-amber-700 border-amber-300"}>
+                              {hasToken ? "טוקן שמור" : "ללא טוקן"}
+                            </Badge>
+                          </div>
+                        </button>
+
+                        <div className="mt-2 grid grid-cols-1 md:grid-cols-4 gap-2" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex items-center gap-2 md:col-span-1">
+                            <Checkbox
+                              checked={draft.enabled}
+                              onCheckedChange={(value) => updateDraft(account.id, { enabled: value === true })}
+                            />
+                            <span className="text-xs">ייבוא אוטומטי</span>
+                          </div>
+
+                          <Select
+                            value={String(draft.interval)}
+                            onValueChange={(value) => updateDraft(account.id, { interval: Number(value) })}
+                          >
+                            <SelectTrigger className="h-8 md:col-span-1">
+                              <SelectValue placeholder="תדירות" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="15">כל 15 דקות</SelectItem>
+                              <SelectItem value="30">כל 30 דקות</SelectItem>
+                              <SelectItem value="60">כל שעה</SelectItem>
+                              <SelectItem value="180">כל 3 שעות</SelectItem>
+                              <SelectItem value="360">כל 6 שעות</SelectItem>
+                              <SelectItem value="720">כל 12 שעות</SelectItem>
+                              <SelectItem value="1440">פעם ביום</SelectItem>
+                            </SelectContent>
+                          </Select>
+
+                          <Select
+                            value={draft.targetProjectId || "all"}
+                            onValueChange={(value) => updateDraft(account.id, { targetProjectId: value })}
+                          >
+                            <SelectTrigger className="h-8 md:col-span-1">
+                              <SelectValue placeholder="פרויקט יעד" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="all">כל הפרויקטים המקושרים</SelectItem>
+                              {githubProjects.map((project: any) => (
+                                <SelectItem key={project.id} value={project.id}>{project.name}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+
+                          <Button
+                            variant="outline"
+                            className="h-8 md:col-span-1"
+                            onClick={() => saveAccountSyncSettings(account.id)}
+                            disabled={updateAccount.isPending}
+                          >
+                            שמור הגדרות
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground">אין עדיין חשבונות GitHub. לחץ על פלוס כדי להוסיף.</p>
+              )}
+            </div>
+
+            {githubAccounts.length > 0 && (
+              <div>
+                <Label>חשבון GitHub לייבוא</Label>
+                <Select value={selectedAccountId} onValueChange={setSelectedAccountId}>
+                  <SelectTrigger className="mt-1">
+                    <SelectValue placeholder="בחר חשבון" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">ללא חשבון שמור</SelectItem>
+                    {githubAccounts.map((account: any) => (
+                      <SelectItem key={account.id} value={account.id}>
+                        {account.username || account.email || account.service_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
             {savedToken ? (
-              <div className="flex items-center gap-2 p-3 bg-green-50 border border-green-200 rounded-lg">
-                <Check className="h-4 w-4 text-green-600" />
-                <span className="text-sm text-green-700">טוען רפוזיטוריים עם הטוקן השמור...</span>
+              <div className="space-y-2 p-3 bg-green-50 border border-green-200 rounded-lg">
+                <div className="flex items-center gap-2">
+                  <Check className="h-4 w-4 text-green-600" />
+                  <span className="text-sm text-green-700">יש טוקן שמור לחשבון הנבחר.</span>
+                </div>
+                <Button className="w-full bg-accent text-accent-foreground hover:bg-accent/90" onClick={() => fetchRepos(savedToken)}>
+                  טען רפוזיטוריים עם הטוקן השמור
+                </Button>
               </div>
             ) : (
               <>
@@ -228,7 +474,7 @@ export function GitHubImportDialog({ open, onOpenChange }: Props) {
                   <Input className="mt-1 font-mono text-sm" type="password" value={token} onChange={(e) => setToken(e.target.value)} placeholder="ghp_xxxxxxxxxxxx" />
                 </div>
                 <Button className="w-full bg-accent text-accent-foreground hover:bg-accent/90" onClick={() => fetchRepos()} disabled={!token.trim()}>
-                  טען רפוזיטוריים
+                  {selectedAccount ? "שמור טוקן לחשבון וטען" : "טען רפוזיטוריים"}
                 </Button>
               </>
             )}

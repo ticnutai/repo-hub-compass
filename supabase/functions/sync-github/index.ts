@@ -69,8 +69,25 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Determine token: use provided or get from profile
+    // Try resolving token from a linked GitHub account first
+    const { data: linkedAccounts } = await supabase
+      .from("account_projects")
+      .select("account_id, accounts(id, service_name, api_key, password)")
+      .eq("project_id", project_id)
+      .eq("user_id", userId);
+
+    const linkedGithubAccount = (linkedAccounts || [])
+      .map((row: any) => row.accounts)
+      .find((account: any) => account && String(account.service_name || "").toLowerCase().includes("github"));
+
+    const linkedGithubToken = linkedGithubAccount?.api_key || linkedGithubAccount?.password;
+
+    // Determine token: explicit token, linked account token, then profile token
     let token = github_token;
+    if (!token) {
+      token = linkedGithubToken;
+    }
+
     if (!token) {
       const { data: profile } = await supabase
         .from("profiles")
@@ -81,18 +98,33 @@ Deno.serve(async (req) => {
     }
 
     if (!token) {
+      await supabase.from("system_alerts" as any).insert({
+        user_id: userId,
+        project_id,
+        severity: "error",
+        title: "חסר טוקן GitHub",
+        message: "לא נמצא טוקן GitHub לפרויקט או לחשבון המקושר.",
+        status: "open",
+      } as any);
       return new Response(JSON.stringify({ error: "No GitHub token found. Please provide one." }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // If token was provided, save it to profile
+    // If token was provided, persist it to linked account when possible, else fallback to profile
     if (github_token) {
-      await supabase
-        .from("profiles")
-        .update({ github_token })
-        .eq("user_id", userId);
+      if (linkedGithubAccount?.id) {
+        await supabase
+          .from("accounts")
+          .update({ api_key: github_token })
+          .eq("id", linkedGithubAccount.id);
+      } else {
+        await supabase
+          .from("profiles")
+          .update({ github_token })
+          .eq("user_id", userId);
+      }
     }
 
     // Extract owner/repo from URL
@@ -120,6 +152,14 @@ Deno.serve(async (req) => {
 
     if (!githubRes.ok) {
       const errText = await githubRes.text();
+      await supabase.from("system_alerts" as any).insert({
+        user_id: userId,
+        project_id,
+        severity: "error",
+        title: "שגיאת GitHub API",
+        message: `GitHub API error [${githubRes.status}]`,
+        status: "open",
+      } as any);
       return new Response(JSON.stringify({ error: `GitHub API error [${githubRes.status}]: ${errText}` }), {
         status: 502,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
