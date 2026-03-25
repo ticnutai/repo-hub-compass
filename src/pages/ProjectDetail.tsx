@@ -1,5 +1,6 @@
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { ArrowRight, Github, Monitor, Plus, Bug, RefreshCw, Rocket, HardDrive, Eye, EyeOff, ExternalLink, RotateCw, Download, Upload, ScanSearch, Pencil, Trash2, X, Check } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -43,6 +44,7 @@ export default function ProjectDetail() {
   const [pushing, setPushing] = useState(false);
   const [editing, setEditing] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [githubRenameDialog, setGithubRenameDialog] = useState(false);
 
   // Edit form state
   const [editName, setEditName] = useState("");
@@ -64,8 +66,45 @@ export default function ProjectDetail() {
   };
 
   const saveEdit = async () => {
-    if (!id || !editName.trim()) return;
+    if (!id || !editName.trim() || !project) return;
+    const nameChanged = editName.trim() !== project.name;
+    const isGithubProject = project.platform === "github" && project.repo_url;
+
+    if (nameChanged && isGithubProject) {
+      setGithubRenameDialog(true);
+      return;
+    }
+
+    await doSave(false);
+  };
+
+  const doSave = async (renameOnGithub: boolean) => {
+    if (!id || !editName.trim() || !project) return;
     try {
+      let newRepoUrl = project.repo_url;
+      if (renameOnGithub && project.repo_url && profile?.github_token) {
+        const match = project.repo_url.match(/github\.com\/([^/]+)\/([^/]+)/);
+        if (match) {
+          const [, owner, oldRepo] = match;
+          const newName = editName.trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+          const res = await fetch(`https://api.github.com/repos/${owner}/${oldRepo}`, {
+            method: "PATCH",
+            headers: {
+              Authorization: `token ${profile.github_token}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ name: newName }),
+          });
+          if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.message || "שגיאה בשינוי שם ב-GitHub");
+          }
+          const repoData = await res.json();
+          newRepoUrl = repoData.html_url;
+          toast.success("שם הריפו שונה גם ב-GitHub!");
+        }
+      }
+
       await updateProject.mutateAsync({
         id,
         name: editName,
@@ -74,12 +113,18 @@ export default function ProjectDetail() {
         category: editCategory,
         status: editStatus,
         tags: editTags.split(",").map(t => t.trim()).filter(Boolean),
+        ...(newRepoUrl !== project.repo_url ? { repo_url: newRepoUrl } : {}),
       });
       toast.success("פרויקט עודכן בהצלחה!");
       setEditing(false);
     } catch (e: any) {
       toast.error(e.message);
     }
+  };
+
+  const handleGithubRenameConfirm = async (renameOnGithub: boolean) => {
+    setGithubRenameDialog(false);
+    await doSave(renameOnGithub);
   };
 
   const handleDelete = async () => {
