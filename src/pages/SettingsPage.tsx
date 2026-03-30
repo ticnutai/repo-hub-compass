@@ -15,6 +15,12 @@ import { LogOut, Loader2, Check, Eye, EyeOff, Clock, RefreshCw, Terminal, Databa
 import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
+type GitHubIdentity = {
+  login: string;
+  name?: string | null;
+  email?: string | null;
+};
+
 // ---- General Settings Tab ----
 function GeneralSettingsTab() {
   const { user, signOut } = useAuth();
@@ -25,6 +31,8 @@ function GeneralSettingsTab() {
   const [autoSync, setAutoSync] = useState(false);
   const [syncInterval, setSyncInterval] = useState("daily");
   const [savingSync, setSavingSync] = useState(false);
+  const [githubIdentity, setGithubIdentity] = useState<GitHubIdentity | null>(null);
+  const [checkingIdentity, setCheckingIdentity] = useState(false);
 
   const hasToken = !!profile?.github_token;
 
@@ -35,13 +43,111 @@ function GeneralSettingsTab() {
     }
   }, [profile]);
 
+  const fetchGitHubIdentity = async (token: string): Promise<GitHubIdentity> => {
+    const userRes = await fetch("https://api.github.com/user", {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: "application/vnd.github+json",
+      },
+    });
+
+    if (!userRes.ok) {
+      throw new Error("טוקן GitHub לא תקין או ללא הרשאות");
+    }
+
+    const userData = await userRes.json();
+    let resolvedEmail: string | null = userData.email || null;
+
+    if (!resolvedEmail) {
+      const emailRes = await fetch("https://api.github.com/user/emails", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: "application/vnd.github+json",
+        },
+      });
+
+      if (emailRes.ok) {
+        const emails = await emailRes.json();
+        const primary = (emails || []).find((entry: any) => entry?.primary && entry?.verified) || (emails || [])[0];
+        resolvedEmail = primary?.email || null;
+      }
+    }
+
+    return {
+      login: userData.login,
+      name: userData.name,
+      email: resolvedEmail,
+    };
+  };
+
+  useEffect(() => {
+    const loadIdentity = async () => {
+      const token = profile?.github_token;
+      if (!token) {
+        setGithubIdentity(null);
+        return;
+      }
+
+      setCheckingIdentity(true);
+      try {
+        const identity = await fetchGitHubIdentity(token);
+        setGithubIdentity(identity);
+      } catch {
+        setGithubIdentity(null);
+      }
+      setCheckingIdentity(false);
+    };
+
+    loadIdentity();
+  }, [profile?.github_token]);
+
   const handleSaveToken = async () => {
     if (!githubToken.trim()) return;
     setSaving(true);
     try {
-      const { error } = await supabase.from("profiles").update({ github_token: githubToken.trim() }).eq("user_id", user!.id);
+      const token = githubToken.trim();
+      const identity = await fetchGitHubIdentity(token);
+
+      const { error } = await supabase.from("profiles").update({ github_token: token }).eq("user_id", user!.id);
       if (error) throw error;
-      toast.success("GitHub Token נשמר בהצלחה!");
+
+      const githubEmail = identity.email || user?.email || "";
+      const { data: existingAccount } = await supabase
+        .from("accounts")
+        .select("id")
+        .eq("user_id", user!.id)
+        .ilike("service_name", "github")
+        .eq("username", identity.login)
+        .maybeSingle();
+
+      if (existingAccount?.id) {
+        await supabase
+          .from("accounts")
+          .update({
+            service_name: "GitHub",
+            service_type: "קוד",
+            username: identity.login,
+            email: githubEmail,
+            api_key: token,
+            notes: identity.name ? `GitHub Name: ${identity.name}` : "",
+          })
+          .eq("id", existingAccount.id);
+      } else {
+        await supabase
+          .from("accounts")
+          .insert({
+            user_id: user!.id,
+            service_name: "GitHub",
+            service_type: "קוד",
+            username: identity.login,
+            email: githubEmail,
+            api_key: token,
+            notes: identity.name ? `GitHub Name: ${identity.name}` : "",
+          } as any);
+      }
+
+      setGithubIdentity(identity);
+      toast.success(`GitHub Token נשמר בהצלחה! חשבון: ${identity.login}`);
       setGithubToken("");
       refetch();
     } catch (e: any) { toast.error(e.message); }
@@ -54,6 +160,7 @@ function GeneralSettingsTab() {
       const { error } = await supabase.from("profiles").update({ github_token: null }).eq("user_id", user!.id);
       if (error) throw error;
       toast.success("GitHub Token הוסר");
+      setGithubIdentity(null);
       refetch();
     } catch (e: any) { toast.error(e.message); }
     setSaving(false);
@@ -110,6 +217,16 @@ function GeneralSettingsTab() {
                 <Check className="h-4 w-4 text-green-600" />
                 <span className="text-sm text-green-700 font-medium">GitHub Token מחובר</span>
               </div>
+              {checkingIdentity ? (
+                <p className="text-xs text-muted-foreground">בודק פרטי חשבון GitHub...</p>
+              ) : githubIdentity ? (
+                <div className="flex flex-wrap gap-2">
+                  <Badge variant="outline" className="border-sky-300 bg-sky-50 text-sky-700">חשבון: {githubIdentity.login}</Badge>
+                  {githubIdentity.email && <Badge variant="outline" className="border-emerald-300 bg-emerald-50 text-emerald-700">מייל: {githubIdentity.email}</Badge>}
+                </div>
+              ) : (
+                <p className="text-xs text-amber-700">לא ניתן היה לזהות שם חשבון מהטוקן הנוכחי</p>
+              )}
               <div className="flex items-center gap-2">
                 <Input className="flex-1 font-mono text-sm" type={showToken ? "text" : "password"} value={profile?.github_token || ""} disabled />
                 <Button variant="ghost" size="icon" onClick={() => setShowToken(!showToken)}>
