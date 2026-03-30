@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Search, Plus, LayoutGrid, List, Github, Monitor, FolderGit2, Trash2, Download, Archive, CheckSquare, Pencil, Check, X } from "lucide-react";
+import { Search, Plus, LayoutGrid, List, Github, Monitor, FolderGit2, Trash2, Archive, Pencil, Check, X, Mail, Sparkles } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -59,25 +59,65 @@ export default function Projects() {
   const [newPlatform, setNewPlatform] = useState<"github" | "local">("github");
   const [newLang, setNewLang] = useState("");
 
+  const serviceKeyFromName = (value?: string) => {
+    const normalized = (value || "").toLowerCase();
+    if (normalized.includes("github")) return "github";
+    if (normalized.includes("lovable")) return "lovable";
+    if (normalized.includes("vercel")) return "vercel";
+    if (normalized.includes("netlify")) return "netlify";
+    return normalized || "other";
+  };
+
+  const serviceLabelFromKey = (serviceKey: string, rawName?: string) => {
+    if (serviceKey === "github") return "GitHub";
+    if (serviceKey === "lovable") return "Lovable";
+    if (serviceKey === "vercel") return "Vercel";
+    if (serviceKey === "netlify") return "Netlify";
+    return rawName || "Service";
+  };
+
+  const serviceBadgeClassFromKey = (serviceKey: string) => {
+    if (serviceKey === "github") return "border-sky-300 bg-sky-50 text-sky-700";
+    if (serviceKey === "lovable") return "border-rose-300 bg-rose-50 text-rose-700";
+    if (serviceKey === "vercel") return "border-zinc-300 bg-zinc-50 text-zinc-700";
+    if (serviceKey === "netlify") return "border-emerald-300 bg-emerald-50 text-emerald-700";
+    return "border-slate-300 bg-slate-50 text-slate-700";
+  };
+
+  const resolveOriginalEmail = (account: { email?: string; username?: string; serviceKey: string }) => {
+    if (account.email?.trim()) return account.email.trim();
+    if (account.username?.includes("@")) return account.username;
+    if (account.serviceKey === "github") return profile?.email || "no-email";
+    return "no-email";
+  };
+
   const githubAccounts = (accounts || []).filter((account: any) =>
-    account.service_name?.toLowerCase().includes("github")
+    serviceKeyFromName(account.service_name) === "github"
   );
 
-  const projectGithubAccountsMap = (projectAccountLinks || []).reduce((acc: Record<string, Array<{ id: string; name: string; username: string; email: string; token: string }>>, link: any) => {
+  const projectLinkedAccountsMap = (projectAccountLinks || []).reduce((acc: Record<string, Array<{ id: string; name: string; username: string; email: string; token: string; serviceKey: string }>>, link: any) => {
     const account = link.accounts;
-    if (!account || !account.service_name?.toLowerCase().includes("github")) return acc;
+    if (!account) return acc;
     if (!acc[link.project_id]) acc[link.project_id] = [];
     const alreadyExists = acc[link.project_id].some((existing) => existing.id === account.id);
     if (alreadyExists) return acc;
     acc[link.project_id].push({
       id: account.id,
-      name: account.service_name,
+      name: account.service_name || "Service",
       username: account.username || "",
       email: account.email || "",
       token: account.api_key || account.password || "",
+      serviceKey: serviceKeyFromName(account.service_name),
     });
     return acc;
   }, {});
+
+  const projectGithubAccountsMap = Object.fromEntries(
+    Object.entries(projectLinkedAccountsMap).map(([projectId, linkedAccounts]) => [
+      projectId,
+      linkedAccounts.filter((account) => account.serviceKey === "github"),
+    ])
+  );
 
   const resolveProjectGithubToken = (projectId: string) => {
     const linkedGithubAccounts = projectGithubAccountsMap[projectId] || [];
@@ -415,11 +455,23 @@ export default function Projects() {
                           <h3 className="font-semibold text-foreground">{project.name}</h3>
                         </div>
                         {viewMode === "grid" && <p className="text-sm text-muted-foreground line-clamp-2">{project.description || <span className="italic opacity-50">ללא תיאור</span>}</p>}
-                        {projectGithubAccountsMap[project.id]?.length > 0 && (
+                        {projectLinkedAccountsMap[project.id]?.length > 0 && (
                           <div className="flex flex-wrap gap-1.5 mt-2">
-                            {projectGithubAccountsMap[project.id].map((account) => (
-                              <Badge key={`${project.id}-${account.id}`} variant="outline" className="text-xs border-sky-300 text-sky-700 bg-sky-50">
-                                GitHub: {account.username || account.name}
+                            {projectLinkedAccountsMap[project.id].map((account) => (
+                              <Badge
+                                key={`${project.id}-${account.id}`}
+                                variant="outline"
+                                className={`max-w-full gap-1.5 px-2 py-1 ${serviceBadgeClassFromKey(account.serviceKey)}`}
+                              >
+                                {account.serviceKey === "github" ? <Github className="h-3.5 w-3.5" /> : <Sparkles className="h-3.5 w-3.5" />}
+                                <span className="font-medium">{serviceLabelFromKey(account.serviceKey, account.name)}</span>
+                                <span className="opacity-60">•</span>
+                                <span className="max-w-[120px] truncate">{account.username || "user"}</span>
+                                <span className="opacity-60">•</span>
+                                <Mail className="h-3.5 w-3.5" />
+                                <span dir="ltr" className="max-w-[170px] truncate" title={resolveOriginalEmail(account)}>
+                                  {resolveOriginalEmail(account)}
+                                </span>
                               </Badge>
                             ))}
                           </div>

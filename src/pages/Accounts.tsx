@@ -23,9 +23,51 @@ interface AccountForm {
   notes: string;
 }
 
+interface LinkedEmailEntry {
+  email: string;
+  connection: string;
+}
+
 const emptyForm: AccountForm = {
   service_name: "", service_type: "", username: "", email: "", password: "", api_key: "", notes: "",
 };
+
+const LINKED_EMAILS_MARKER = "[[linked-emails]]";
+
+function extractNotesAndLinkedEmails(rawNotes?: string): { plainNotes: string; linkedEmails: LinkedEmailEntry[] } {
+  const source = rawNotes || "";
+  const markerIndex = source.lastIndexOf(LINKED_EMAILS_MARKER);
+  if (markerIndex === -1) {
+    return { plainNotes: source, linkedEmails: [] };
+  }
+
+  const plainNotes = source.slice(0, markerIndex).trimEnd();
+  const jsonPart = source.slice(markerIndex + LINKED_EMAILS_MARKER.length).trim();
+  try {
+    const parsed = JSON.parse(jsonPart);
+    if (!Array.isArray(parsed)) return { plainNotes: source, linkedEmails: [] };
+    const linkedEmails = parsed
+      .map((entry) => ({
+        email: typeof entry?.email === "string" ? entry.email.trim() : "",
+        connection: typeof entry?.connection === "string" ? entry.connection.trim() : "",
+      }))
+      .filter((entry) => !!entry.email);
+    return { plainNotes, linkedEmails };
+  } catch {
+    return { plainNotes: source, linkedEmails: [] };
+  }
+}
+
+function buildNotesWithLinkedEmails(plainNotes: string, linkedEmails: LinkedEmailEntry[]): string {
+  const normalizedNotes = plainNotes.trim();
+  const normalizedEmails = linkedEmails
+    .map((entry) => ({ email: entry.email.trim(), connection: entry.connection.trim() }))
+    .filter((entry) => !!entry.email);
+
+  if (normalizedEmails.length === 0) return normalizedNotes;
+  const payload = `${LINKED_EMAILS_MARKER}${JSON.stringify(normalizedEmails)}`;
+  return normalizedNotes ? `${normalizedNotes}\n\n${payload}` : payload;
+}
 
 // Service presets with their required fields and links
 const servicePresets = [
@@ -158,14 +200,22 @@ export default function Accounts() {
   const [importOpen, setImportOpen] = useState(false);
   const [selectedPreset, setSelectedPreset] = useState<typeof servicePresets[number] | null>(null);
   const [showAllPresets, setShowAllPresets] = useState(false);
+  const [linkedEmails, setLinkedEmails] = useState<LinkedEmailEntry[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const filtered = (accounts || []).filter(a =>
-    a.service_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (a.username || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (a.email || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (a.service_type || "").toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filtered = (accounts || []).filter(a => {
+    const { linkedEmails: savedLinkedEmails } = extractNotesAndLinkedEmails(a.notes || "");
+    const linkedEmailMatch = savedLinkedEmails.some((entry) =>
+      entry.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      entry.connection.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+
+    return a.service_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (a.username || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (a.email || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (a.service_type || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+      linkedEmailMatch;
+  });
 
   const setField = (key: keyof AccountForm, value: string) =>
     setForm(f => ({ ...f, [key]: value }));
@@ -173,10 +223,12 @@ export default function Accounts() {
   const openCreate = () => {
     setEditId(null);
     setForm({ ...emptyForm });
+    setLinkedEmails([]);
     setOpen(true);
   };
 
   const openEdit = (account: any) => {
+    const { plainNotes, linkedEmails: accountLinkedEmails } = extractNotesAndLinkedEmails(account.notes || "");
     setEditId(account.id);
     setForm({
       service_name: account.service_name || "",
@@ -185,23 +237,44 @@ export default function Accounts() {
       email: account.email || "",
       password: account.password || "",
       api_key: account.api_key || "",
-      notes: account.notes || "",
+      notes: plainNotes,
     });
+    setLinkedEmails(accountLinkedEmails);
     setOpen(true);
+  };
+
+  const addLinkedEmailRow = () => {
+    setLinkedEmails((prev) => [...prev, { email: "", connection: "" }]);
+  };
+
+  const updateLinkedEmailRow = (index: number, field: keyof LinkedEmailEntry, value: string) => {
+    setLinkedEmails((prev) => prev.map((entry, i) => (i === index ? { ...entry, [field]: value } : entry)));
+  };
+
+  const removeLinkedEmailRow = (index: number) => {
+    setLinkedEmails((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleSave = async () => {
     if (!form.service_name.trim()) return;
     try {
       if (editId) {
-        await updateAccount.mutateAsync({ id: editId, ...form });
+        await updateAccount.mutateAsync({
+          id: editId,
+          ...form,
+          notes: buildNotesWithLinkedEmails(form.notes, linkedEmails),
+        });
         toast.success("חשבון עודכן בהצלחה!");
       } else {
-        await createAccount.mutateAsync(form);
+        await createAccount.mutateAsync({
+          ...form,
+          notes: buildNotesWithLinkedEmails(form.notes, linkedEmails),
+        });
         toast.success("חשבון נוסף בהצלחה!");
       }
       setOpen(false);
       setForm({ ...emptyForm });
+      setLinkedEmails([]);
       setEditId(null);
     } catch (e: any) {
       toast.error(e.message);
@@ -358,7 +431,9 @@ export default function Accounts() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {filtered.map((account) => (
+          {filtered.map((account) => {
+            const { plainNotes, linkedEmails: savedLinkedEmails } = extractNotesAndLinkedEmails(account.notes || "");
+            return (
             <Card key={account.id} className="border-2 border-border hover:border-accent transition-colors group">
               <CardHeader className="pb-3">
                 <CardTitle className="text-lg flex items-center gap-2">
@@ -403,12 +478,22 @@ export default function Accounts() {
                     <span className="truncate">{account.email}</span>
                   </div>
                 )}
+                {savedLinkedEmails.length > 0 && (
+                  <div className="space-y-1">
+                    {savedLinkedEmails.map((entry, idx) => (
+                      <div key={`${account.id}-linked-${idx}`} className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <Badge variant="outline" className="text-[10px]">{entry.connection || "חיבור"}</Badge>
+                        <span dir="ltr" className="truncate">{entry.email}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
                 {account.password && <SecretField label="סיסמה" value={account.password} id={account.id} />}
                 {account.api_key && <SecretField label="API Key" value={account.api_key} id={`api-${account.id}`} />}
-                {account.notes && <p className="text-xs text-muted-foreground italic line-clamp-2">{account.notes}</p>}
+                {plainNotes && <p className="text-xs text-muted-foreground italic line-clamp-2">{plainNotes}</p>}
               </CardContent>
             </Card>
-          ))}
+          );})}
         </div>
       )}
 
@@ -455,6 +540,7 @@ export default function Accounts() {
                     onClick={() => {
                       setSelectedPreset(null);
                       setForm({ ...emptyForm });
+                        setLinkedEmails([]);
                     }}
                   >
                     <span className="text-xl leading-none">✏️</span>
@@ -541,6 +627,37 @@ export default function Accounts() {
             )}
 
             <div><Label>הערות</Label><Textarea className="mt-1" value={form.notes} onChange={e => setField("notes", e.target.value)} placeholder="הערות נוספות..." /></div>
+            <div className="space-y-2 rounded-lg border border-border p-3">
+              <div className="flex items-center justify-between">
+                <Label className="text-sm">מיילים נוספים לפי חיבור</Label>
+                <Button type="button" variant="outline" size="sm" onClick={addLinkedEmailRow}>
+                  <Plus className="h-3.5 w-3.5 ml-1" /> הוסף מייל
+                </Button>
+              </div>
+              {linkedEmails.length === 0 && (
+                <p className="text-xs text-muted-foreground">אפשר להוסיף כאן מיילים נוספים ולציין לאיזה חיבור הם שייכים (למשל: GitHub, Lovable).</p>
+              )}
+              {linkedEmails.map((entry, index) => (
+                <div key={`linked-email-${index}`} className="grid grid-cols-12 gap-2 items-center">
+                  <Input
+                    type="email"
+                    value={entry.email}
+                    onChange={(e) => updateLinkedEmailRow(index, "email", e.target.value)}
+                    placeholder="email@example.com"
+                    className="col-span-6"
+                  />
+                  <Input
+                    value={entry.connection}
+                    onChange={(e) => updateLinkedEmailRow(index, "connection", e.target.value)}
+                    placeholder="לאיזה חיבור"
+                    className="col-span-5"
+                  />
+                  <Button type="button" variant="ghost" size="icon" className="col-span-1" onClick={() => removeLinkedEmailRow(index)}>
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+            </div>
             <Button className="w-full bg-accent text-accent-foreground hover:bg-accent/90" onClick={handleSave} disabled={createAccount.isPending || updateAccount.isPending}>
               {(createAccount.isPending || updateAccount.isPending) ? "שומר..." : editId ? "שמור שינויים" : "הוסף חשבון"}
             </Button>
