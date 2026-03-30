@@ -532,7 +532,7 @@ export default function Projects() {
                         {project.platform === "github" && (projectLinkedAccountsMap[project.id]?.length || 0) === 0 && (inferredGithubByProject[project.id]?.length || 0) === 0 && (
                           <div className="mt-2">
                             <Badge variant="outline" className="border-amber-300 bg-amber-50 text-amber-700 text-xs">
-                              GitHub לא מקושר לחשבון - חבר חשבון כדי להציג מיילים
+                              אין חשבון GitHub מקושר לפרויקט זה{githubAccounts[0] ? ` • חשבון זמין: ${githubAccounts[0].username || githubAccounts[0].email || "unknown"}` : ""}
                             </Badge>
                           </div>
                         )}

@@ -210,6 +210,10 @@ export default function ProjectDetail() {
     .map((row: any) => row.accounts)
     .filter((acc: any) => (acc?.service_name || "").toLowerCase().includes("github"));
 
+  const globalGithubAccounts = (accounts || []).filter((acc: any) =>
+    (acc.service_name || "").toLowerCase().includes("github")
+  );
+
   const inferredGithubAccounts = linkedGithubAccounts.length === 0 && repoOwner
     ? (accounts || []).filter((acc: any) => {
         const isGithubService = (acc.service_name || "").toLowerCase().includes("github");
@@ -278,9 +282,17 @@ export default function ProjectDetail() {
                           </Badge>
                         );
                       })
+                    ) : profile?.github_token ? (
+                      <Badge variant="outline" className="border-emerald-300 bg-emerald-50 text-emerald-700">
+                        מחובר ל-GitHub דרך טוקן פרופיל{globalGithubAccounts[0] ? ` • חשבון: ${globalGithubAccounts[0].username || globalGithubAccounts[0].email || "unknown"}` : ""}
+                      </Badge>
+                    ) : globalGithubAccounts.length > 0 ? (
+                      <Badge variant="outline" className="border-sky-300 bg-sky-50 text-sky-700">
+                        חשבון GitHub זמין: {globalGithubAccounts[0].username || globalGithubAccounts[0].email || "unknown"} (לא מקושר לפרויקט)
+                      </Badge>
                     ) : (
                       <Badge variant="outline" className="border-amber-300 bg-amber-50 text-amber-700">
-                        GitHub לא מקושר לחשבון - חבר חשבון כדי להציג מיילים
+                        אין חיבור GitHub פעיל - חבר חשבון או הוסף טוקן בפרופיל
                       </Badge>
                     )}
                   </div>
