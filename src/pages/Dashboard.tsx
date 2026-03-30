@@ -3,17 +3,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useProjects, useChangelogs, useBackups } from "@/hooks/use-data";
 import { Link } from "react-router-dom";
-import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip } from "recharts";
 import { Skeleton } from "@/components/ui/skeleton";
+import { DashboardHealthAlerts } from "@/components/DashboardHealthAlerts";
+import { DashboardActivityChart } from "@/components/DashboardActivityChart";
+import { WeeklyReport } from "@/components/WeeklyReport";
 
 const statusLabels: Record<string, string> = { active: "פעיל", paused: "מושהה", completed: "הושלם" };
 const changeTypeLabels: Record<string, string> = { feature: "פיצ'ר חדש", fix: "תיקון", update: "עדכון", deploy: "דיפלוי" };
 const changeTypeIcons: Record<string, typeof Plus> = { feature: Plus, fix: Bug, update: RefreshCw, deploy: Rocket };
-
-const activityData = [
-  { day: "א׳", commits: 5 }, { day: "ב׳", commits: 8 }, { day: "ג׳", commits: 3 },
-  { day: "ד׳", commits: 12 }, { day: "ה׳", commits: 7 }, { day: "ו׳", commits: 2 }, { day: "ש׳", commits: 0 },
-];
 
 export default function Dashboard() {
   const { data: projects, isLoading: loadingProjects } = useProjects();
@@ -52,6 +49,9 @@ export default function Dashboard() {
         ))}
       </div>
 
+      {/* Smart Alerts */}
+      <DashboardHealthAlerts />
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card className="border-2 border-border">
           <CardHeader className="pb-3">
@@ -82,20 +82,12 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        <Card className="border-2 border-border">
-          <CardHeader className="pb-3"><CardTitle className="text-lg">פעילות שבועית</CardTitle></CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={200}>
-              <BarChart data={activityData}>
-                <XAxis dataKey="day" axisLine={false} tickLine={false} className="text-xs" />
-                <YAxis hide />
-                <Tooltip contentStyle={{ borderRadius: '8px', border: '2px solid hsl(43 76% 52%)' }} />
-                <Bar dataKey="commits" fill="hsl(43 76% 52%)" radius={[6, 6, 0, 0]} name="שינויים" />
-              </BarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
+        {/* Real activity chart */}
+        <DashboardActivityChart />
       </div>
+
+      {/* Weekly Report */}
+      <WeeklyReport />
 
       <Card className="border-2 border-border">
         <CardHeader className="pb-3"><CardTitle className="text-lg">שינויים אחרונים</CardTitle></CardHeader>
