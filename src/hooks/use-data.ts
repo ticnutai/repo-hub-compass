@@ -877,7 +877,7 @@ export function useUpsertProjectMember() {
           userId: user.id,
           action: "project_member_upserted",
           entityType: "project_member",
-          entityId: data.id,
+          entityId: (data as any)?.id || "unknown",
           metadata: { project_id, user_id, role },
         });
       }
