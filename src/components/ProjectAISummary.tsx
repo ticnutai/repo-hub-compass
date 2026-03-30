@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Bot, Sparkles, Copy, Check } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -68,6 +68,110 @@ export function ProjectAISummary({ projectId, projectName }: ProjectAISummaryPro
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const renderInline = (text: string, keyPrefix: string) => {
+    const parts = text.split(/(\*\*[^*]+\*\*)/g).filter(Boolean);
+    return parts.map((part, i) => {
+      const boldMatch = part.match(/^\*\*(.+)\*\*$/);
+      if (boldMatch) {
+        return (
+          <strong key={`${keyPrefix}-b-${i}`} className="font-semibold text-foreground">
+            {boldMatch[1]}
+          </strong>
+        );
+      }
+      return <span key={`${keyPrefix}-t-${i}`}>{part}</span>;
+    });
+  };
+
+  const renderSummary = (raw: string) => {
+    const lines = raw.replace(/\r\n/g, "\n").split("\n");
+    const blocks: JSX.Element[] = [];
+    let bulletBuffer: string[] = [];
+    let orderedBuffer: string[] = [];
+
+    const flushBullets = () => {
+      if (bulletBuffer.length === 0) return;
+      blocks.push(
+        <ul key={`ul-${blocks.length}`} className="list-disc pr-5 space-y-1 text-sm leading-7 marker:text-accent">
+          {bulletBuffer.map((item, idx) => (
+            <li key={`ul-item-${idx}`}>{renderInline(item, `ul-${blocks.length}-${idx}`)}</li>
+          ))}
+        </ul>
+      );
+      bulletBuffer = [];
+    };
+
+    const flushOrdered = () => {
+      if (orderedBuffer.length === 0) return;
+      blocks.push(
+        <ol key={`ol-${blocks.length}`} className="list-decimal pr-5 space-y-1 text-sm leading-7 marker:text-accent">
+          {orderedBuffer.map((item, idx) => (
+            <li key={`ol-item-${idx}`}>{renderInline(item, `ol-${blocks.length}-${idx}`)}</li>
+          ))}
+        </ol>
+      );
+      orderedBuffer = [];
+    };
+
+    lines.forEach((line, index) => {
+      const trimmed = line.trim();
+
+      if (!trimmed) {
+        flushBullets();
+        flushOrdered();
+        return;
+      }
+
+      const heading = trimmed.match(/^(#{1,6})\s+(.+)$/);
+      if (heading) {
+        flushBullets();
+        flushOrdered();
+        const level = heading[1].length;
+        const content = heading[2].replace(/\*\*/g, "").trim();
+        if (level <= 2) {
+          blocks.push(
+            <h3 key={`h-${index}`} className="text-lg font-bold text-foreground mt-3 first:mt-0">
+              {content}
+            </h3>
+          );
+        } else {
+          blocks.push(
+            <h4 key={`h-${index}`} className="text-base font-semibold text-foreground mt-2 first:mt-0">
+              {content}
+            </h4>
+          );
+        }
+        return;
+      }
+
+      const ordered = trimmed.match(/^\d+\.\s+(.+)$/);
+      if (ordered) {
+        flushBullets();
+        orderedBuffer.push(ordered[1]);
+        return;
+      }
+
+      const bullet = trimmed.match(/^[-*]\s+(.+)$/);
+      if (bullet) {
+        flushOrdered();
+        bulletBuffer.push(bullet[1]);
+        return;
+      }
+
+      flushBullets();
+      flushOrdered();
+      blocks.push(
+        <p key={`p-${index}`} className="text-sm leading-7 text-foreground/90">
+          {renderInline(trimmed, `p-${index}`)}
+        </p>
+      );
+    });
+
+    flushBullets();
+    flushOrdered();
+    return blocks;
+  };
+
   return (
     <Card className="border-2 border-border">
       <CardHeader>
@@ -122,8 +226,8 @@ export function ProjectAISummary({ projectId, projectName }: ProjectAISummaryPro
                 {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4 text-muted-foreground" />}
               </Button>
             </div>
-            <div className="prose prose-sm max-w-none bg-secondary/50 rounded-lg p-4 text-foreground whitespace-pre-wrap leading-relaxed text-sm">
-              {summary}
+            <div className="bg-secondary/50 rounded-lg p-4 pt-10 space-y-3 border border-border/50">
+              {renderSummary(summary)}
             </div>
           </div>
         )}

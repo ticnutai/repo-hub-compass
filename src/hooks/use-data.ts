@@ -436,7 +436,7 @@ export function useProjectAccountLinks() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("account_projects")
-        .select("project_id, account_id, accounts(id, service_name, username, email, api_key, password)");
+        .select("project_id, account_id, accounts(id, service_name, username, email, api_key, password, notes)");
       if (error) throw error;
       return data;
     },

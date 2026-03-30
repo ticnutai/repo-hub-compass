@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { useProject, useChangelogs, useBackups, useAccounts, useCreateBackup, useCreateChangelog, useProfile, useUpdateProject, useDeleteProject } from "@/hooks/use-data";
+import { useProject, useChangelogs, useBackups, useAccounts, useCreateBackup, useCreateChangelog, useProfile, useUpdateProject, useDeleteProject, useProjectAccounts } from "@/hooks/use-data";
 import { useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -34,6 +34,7 @@ export default function ProjectDetail() {
   const { data: changelogs } = useChangelogs(id);
   const { data: backups } = useBackups(id);
   const { data: accounts } = useAccounts();
+  const { data: linkedAccounts } = useProjectAccounts(id);
   const { data: profile } = useProfile();
   const createBackup = useCreateBackup();
   const updateProject = useUpdateProject();
@@ -203,6 +204,22 @@ export default function ProjectDetail() {
 
   const isGithub = project.platform === "github" && project.repo_url;
 
+  const repoOwner = (project.repo_url || "").match(/github\.com\/([^/]+)\//)?.[1]?.toLowerCase() || "";
+
+  const linkedGithubAccounts = (linkedAccounts || [])
+    .map((row: any) => row.accounts)
+    .filter((acc: any) => (acc?.service_name || "").toLowerCase().includes("github"));
+
+  const inferredGithubAccounts = linkedGithubAccounts.length === 0 && repoOwner
+    ? (accounts || []).filter((acc: any) => {
+        const isGithubService = (acc.service_name || "").toLowerCase().includes("github");
+        const usernameMatch = (acc.username || "").toLowerCase() === repoOwner;
+        return isGithubService && usernameMatch;
+      })
+    : [];
+
+  const githubAccountsToShow = linkedGithubAccounts.length > 0 ? linkedGithubAccounts : inferredGithubAccounts;
+
   return (
     <div className="space-y-6" dir="rtl">
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -250,6 +267,24 @@ export default function ProjectDetail() {
                   <h2 className="text-2xl font-bold text-foreground">{project.name}</h2>
                   <Badge variant="outline" className="border-accent text-accent">{statusLabels[project.status]}</Badge>
                 </div>
+                {isGithub && (
+                  <div className="flex flex-wrap gap-1.5 mb-2">
+                    {githubAccountsToShow.length > 0 ? (
+                      githubAccountsToShow.map((acc: any) => {
+                        const resolvedEmail = acc.email || (typeof acc.username === "string" && acc.username.includes("@") ? acc.username : "no-email");
+                        return (
+                          <Badge key={`project-gh-${acc.id}`} variant="outline" className="border-sky-300 bg-sky-50 text-sky-700">
+                            GitHub: {acc.username || "user"} • {resolvedEmail}
+                          </Badge>
+                        );
+                      })
+                    ) : (
+                      <Badge variant="outline" className="border-amber-300 bg-amber-50 text-amber-700">
+                        GitHub לא מקושר לחשבון - חבר חשבון כדי להציג מיילים
+                      </Badge>
+                    )}
+                  </div>
+                )}
                 <p className="text-muted-foreground mb-4">{project.description}</p>
                 <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
                   <span>שפה: <strong className="text-foreground">{project.language}</strong></span>

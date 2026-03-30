@@ -68,6 +68,39 @@ export default function Projects() {
     return normalized || "other";
   };
 
+  const LINKED_EMAILS_MARKER = "[[linked-emails]]";
+
+  const extractLinkedEmailsFromNotes = (rawNotes?: string) => {
+    const source = rawNotes || "";
+    const markerIndex = source.lastIndexOf(LINKED_EMAILS_MARKER);
+    if (markerIndex === -1) return [] as string[];
+    const jsonPart = source.slice(markerIndex + LINKED_EMAILS_MARKER.length).trim();
+    try {
+      const parsed = JSON.parse(jsonPart);
+      if (!Array.isArray(parsed)) return [];
+      return parsed
+        .map((entry: any) => (typeof entry?.email === "string" ? entry.email.trim() : ""))
+        .filter((email: string) => !!email);
+    } catch {
+      return [];
+    }
+  };
+
+  const inferEmails = (account: { email: string; username: string; notes?: string; serviceKey: string }) => {
+    const candidates = new Set<string>();
+    if (account.email?.trim()) candidates.add(account.email.trim());
+    if (account.username?.includes("@")) candidates.add(account.username.trim());
+    extractLinkedEmailsFromNotes(account.notes).forEach((mail) => candidates.add(mail));
+    if (candidates.size === 0 && account.serviceKey === "github" && profile?.email) candidates.add(profile.email);
+    if (candidates.size === 0) candidates.add("no-email");
+    return Array.from(candidates);
+  };
+
+  const extractRepoOwner = (repoUrl?: string) => {
+    const match = (repoUrl || "").match(/github\.com\/([^/]+)\//);
+    return match?.[1]?.toLowerCase() || "";
+  };
+
   const serviceLabelFromKey = (serviceKey: string, rawName?: string) => {
     if (serviceKey === "github") return "GitHub";
     if (serviceKey === "lovable") return "Lovable";
@@ -95,7 +128,7 @@ export default function Projects() {
     serviceKeyFromName(account.service_name) === "github"
   );
 
-  const projectLinkedAccountsMap = (projectAccountLinks || []).reduce((acc: Record<string, Array<{ id: string; name: string; username: string; email: string; token: string; serviceKey: string }>>, link: any) => {
+  const projectLinkedAccountsMap = (projectAccountLinks || []).reduce((acc: Record<string, Array<{ id: string; name: string; username: string; email: string; token: string; serviceKey: string; notes?: string }>>, link: any) => {
     const account = link.accounts;
     if (!account) return acc;
     if (!acc[link.project_id]) acc[link.project_id] = [];
@@ -108,6 +141,7 @@ export default function Projects() {
       email: account.email || "",
       token: account.api_key || account.password || "",
       serviceKey: serviceKeyFromName(account.service_name),
+      notes: account.notes || "",
     });
     return acc;
   }, {});
@@ -305,6 +339,25 @@ export default function Projects() {
 
   const deleteTargetName = deleteId ? (projects || []).find(p => p.id === deleteId)?.name : "";
 
+  const inferredGithubByProject = (projects || []).reduce((acc: Record<string, Array<{ id: string; name: string; username: string; email: string; token: string; serviceKey: string; notes?: string }>>, project: any) => {
+    const linkedGithub = (projectGithubAccountsMap[project.id] || []).length > 0;
+    if (linkedGithub || project.platform !== "github") return acc;
+    const owner = extractRepoOwner(project.repo_url);
+    if (!owner) return acc;
+    const inferred = (githubAccounts || []).filter((account: any) => (account.username || "").toLowerCase() === owner);
+    if (inferred.length === 0) return acc;
+    acc[project.id] = inferred.map((account: any) => ({
+      id: account.id,
+      name: account.service_name || "GitHub",
+      username: account.username || owner,
+      email: account.email || "",
+      token: account.api_key || account.password || "",
+      serviceKey: "github",
+      notes: account.notes || "",
+    }));
+    return acc;
+  }, {});
+
   return (
     <div className="space-y-6" dir="rtl">
       <div className="flex items-center justify-between flex-wrap gap-2">
@@ -455,9 +508,9 @@ export default function Projects() {
                           <h3 className="font-semibold text-foreground">{project.name}</h3>
                         </div>
                         {viewMode === "grid" && <p className="text-sm text-muted-foreground line-clamp-2">{project.description || <span className="italic opacity-50">ללא תיאור</span>}</p>}
-                        {projectLinkedAccountsMap[project.id]?.length > 0 && (
+                        {((projectLinkedAccountsMap[project.id]?.length || 0) > 0 || (inferredGithubByProject[project.id]?.length || 0) > 0) && (
                           <div className="flex flex-wrap gap-1.5 mt-2">
-                            {projectLinkedAccountsMap[project.id].map((account) => (
+                            {[...(projectLinkedAccountsMap[project.id] || []), ...(inferredGithubByProject[project.id] || [])].map((account) => (
                               <Badge
                                 key={`${project.id}-${account.id}`}
                                 variant="outline"
@@ -469,11 +522,18 @@ export default function Projects() {
                                 <span className="max-w-[120px] truncate">{account.username || "user"}</span>
                                 <span className="opacity-60">•</span>
                                 <Mail className="h-3.5 w-3.5" />
-                                <span dir="ltr" className="max-w-[170px] truncate" title={resolveOriginalEmail(account)}>
-                                  {resolveOriginalEmail(account)}
+                                <span dir="ltr" className="max-w-[170px] truncate" title={inferEmails(account).join(", ")}>
+                                  {inferEmails(account).join(" | ")}
                                 </span>
                               </Badge>
                             ))}
+                          </div>
+                        )}
+                        {project.platform === "github" && (projectLinkedAccountsMap[project.id]?.length || 0) === 0 && (inferredGithubByProject[project.id]?.length || 0) === 0 && (
+                          <div className="mt-2">
+                            <Badge variant="outline" className="border-amber-300 bg-amber-50 text-amber-700 text-xs">
+                              GitHub לא מקושר לחשבון - חבר חשבון כדי להציג מיילים
+                            </Badge>
                           </div>
                         )}
                         {project.tags && project.tags.length > 0 && (
